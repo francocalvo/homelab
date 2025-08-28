@@ -28,26 +28,9 @@
           };
         };
 
-        ESP = {
-          label = "ESP";
-          type = "EF00"; # EFI System Partition (ESP)
-          attributes = [ 2 ]; # Legacy BIOS Bootable, for U-Boot to find extlinux config
-          size = "1024M";
-          content = {
-            type = "filesystem";
-            format = "vfat";
-            mountpoint = "/boot";
-            mountOptions = [
-              "noatime"
-              "noauto"
-              "x-systemd.automount"
-              "x-systemd.idle-timeout=1min"
-              "umask=0077"
-            ];
-          };
-        };
 
         system = {
+          label = "NIXOS_SD";
           type = "8300"; # Linux filesystem
           size = "100G"; # Leave space for swap
           content = {
