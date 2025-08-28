@@ -3,30 +3,34 @@
 { config, lib, pkgs, modulesPath, ... }:
 
 {
-  imports = [ ./disko.nix ];
+  # imports = [ ./disko.nix ];
 
-  services = {
-    openssh = { enable = true; };
+  services = { openssh = { enable = true; }; };
+
+  virtualisation = {
+    docker = {
+      enable = true;
+      rootless.enable = true;
+      autoPrune = {
+        enable = true;
+        dates = "weekly";
+        flags = [ "--all" ];
+      };
+    };
   };
 
-  # ARM-specific optimizations
-  # nix.settings = {
-  #   max-jobs = lib.mkDefault 2;
-  #   cores = lib.mkDefault 2;
-  # };
-  #
-  # powerManagement = {
-  #   enable = true;
-  #   cpuFreqGovernor = "performance";
-  # };
+  powerManagement = {
+    enable = true;
+    cpuFreqGovernor = "performance";
+  };
 
   environment.systemPackages = with pkgs; [
     neovim
-    # libraspberrypi
-    # wireguard-tools
-    # htop
-    # iotop
-    # tcpdump
-    # nmap
+    libraspberrypi
+    wireguard-tools
+    htop
+    iotop
+    tcpdump
+    nmap
   ];
 }
