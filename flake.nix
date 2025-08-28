@@ -51,7 +51,7 @@
       nixosConfigurations = {
         x86-host =
           lib.my.mkHost ./hosts/x86-host.nix { system = "x86_64-linux"; };
-        kaitain = nixos-raspberrypi.lib.nixosSystem {
+        kaitain = nixos-raspberrypi.lib.nixosInstaller {
           specialArgs = inputs;
           modules = [
             ({ config, pkgs, lib, nixos-raspberrypi, disko, ... }: {
@@ -61,7 +61,6 @@
                 raspberry-pi-4.bluetooth
               ];
             })
-            disko.nixosModules.disko
             ./hosts/kaitain
           ];
         };
