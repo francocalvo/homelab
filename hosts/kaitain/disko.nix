@@ -57,16 +57,6 @@
             mountOptions = [ "noatime" ];
           };
         };
-
-        swap = {
-          type = "8200"; # Linux swap
-          size = "100%"; # Use remaining space
-          content = {
-            type = "swap";
-            resumeDevice = true;
-          };
-        };
-
       };
     };
   };
