@@ -61,5 +61,18 @@
     cpuFreqGovernor = "performance";
   };
 
+  # User configuration
+  users.users.kaitain = {
+    isNormalUser = true;
+    uid = 1000;
+    group = "kaitain";
+    home = "/home/kaitain";
+    createHome = true;
+  };
+
+  users.groups.kaitain = {
+    gid = 1000;
+  };
+
   environment.systemPackages = with pkgs; [ neovim ];
 }
