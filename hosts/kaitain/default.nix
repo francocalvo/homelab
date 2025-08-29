@@ -29,7 +29,7 @@
 
   # NFS mount configuration
   fileSystems."/mnt/arrakis" = {
-    device = "192.168.1.251:/arrakis/kaitain";
+    device = "192.168.1.251:/mnt/arrakis/kaitain";
     fsType = "nfs";
     options = [ "rw" "hard" "intr" ];
   };
