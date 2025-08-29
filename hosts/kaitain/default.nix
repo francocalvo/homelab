@@ -27,6 +27,13 @@
       if !config.networking.nftables.enable then "podman+" else "podman*";
   in { "${matchAll}" = { allowedUDPPorts = [ 53 ]; }; };
 
+  # NFS mount configuration
+  fileSystems."/mnt/arrakis" = {
+    device = "192.168.1.251:/arrakis/kaitain";
+    fsType = "nfs";
+    options = [ "rw" "hard" "intr" ];
+  };
+
   powerManagement = {
     enable = true;
     cpuFreqGovernor = "performance";
