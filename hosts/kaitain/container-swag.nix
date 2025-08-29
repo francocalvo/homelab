@@ -13,8 +13,7 @@
     environment = {
       "CERTPROVIDER" = "zerossl";
       "DNSPLUGIN" = "cloudflare";
-      "EMAIL" = "<e-mail>";
-      "EXTRA_DOMAINS" = "<extradomains>";
+      "EMAIL" = "dns@fjc.ar";
       "ONLY_SUBDOMAINS" = "false";
       "PGID" = "1000";
       "PUID" = "1000";
