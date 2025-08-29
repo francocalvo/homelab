@@ -8,29 +8,29 @@
   services = { openssh = { enable = true; }; };
 
   virtualisation = {
-    docker = {
+    podman = {
       enable = true;
-      rootless.enable = true;
+      dockerSocket.enable = true;
+      dockerCompat = true;
       autoPrune = {
         enable = true;
         dates = "weekly";
         flags = [ "--all" ];
       };
     };
+    oci-containers.backend = [ "podman" ];
   };
+
+  # Enable container name DNS for podman networks
+  networking.firewall.interfaces = let
+    matchAll =
+      if !config.networking.nftables.enable then "podman+" else "podman*";
+  in { "${matchAll}" = { allowedUDPPorts = [ 53 ]; }; };
 
   powerManagement = {
     enable = true;
     cpuFreqGovernor = "performance";
   };
 
-  environment.systemPackages = with pkgs; [
-    neovim
-    libraspberrypi
-    wireguard-tools
-    htop
-    iotop
-    tcpdump
-    nmap
-  ];
+  environment.systemPackages = with pkgs; [ neovim ];
 }
