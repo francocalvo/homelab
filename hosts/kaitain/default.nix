@@ -3,7 +3,12 @@
 { config, lib, pkgs, modulesPath, ... }:
 
 {
-  imports = [ ./container-swag.nix ./container-networking.nix ];
+  imports = [
+    ./container-networking.nix
+
+    ./container-swag.nix
+    ./container-wg.nix
+  ];
 
   services = { openssh = { enable = true; }; };
 
@@ -26,6 +31,8 @@
     matchAll =
       if !config.networking.nftables.enable then "podman+" else "podman*";
   in { "${matchAll}" = { allowedUDPPorts = [ 53 ]; }; };
+
+  boot.kernelModules = [ "ip6table_nat" ];
 
   # NFS mount configuration
   fileSystems."/mnt/arrakis" = {
@@ -51,5 +58,5 @@
 
   users.groups.kaitain = { gid = 1000; };
 
-  environment.systemPackages = with pkgs; [ neovim ];
+  environment.systemPackages = with pkgs; [ neovim librecast wireguard-tools ];
 }

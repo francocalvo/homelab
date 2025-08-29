@@ -30,5 +30,10 @@
     };
     wantedBy = [ "multi-user.target" ];
   };
+
+  # Ensure swag directory exists
+  systemd.tmpfiles.rules = [
+    "d /mnt/arrakis/wg 0755 1000 1000 -"
+  ];
 }
 

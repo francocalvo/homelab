@@ -45,7 +45,6 @@
     wantedBy = [ "podman-compose-kaitain-root.target" ];
   };
 
-
   # Ensure swag directory exists
   systemd.tmpfiles.rules = [
     "d /mnt/arrakis/swag 0755 1000 1000 -"
