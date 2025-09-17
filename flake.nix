@@ -13,7 +13,9 @@
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
-    nixos-raspberrypi = { url = "github:nvmd/nixos-raspberrypi/main"; };
+    nixos-raspberrypi = {
+      url = "github:nvmd/nixos-raspberrypi/main";
+    };
     disko = {
       # the fork is needed for partition attributes support
       url = "github:nvmd/disko/gpt-attrs";
@@ -29,38 +31,57 @@
     ];
   };
 
-  outputs = inputs@{ self, nixpkgs, nixos-raspberrypi, disko, ... }:
+  outputs =
+    inputs@{
+      self,
+      nixpkgs,
+      nixos-raspberrypi,
+      disko,
+      ...
+    }:
     let
       # Create the base library first (without system-specific pkgs)
-      lib = nixpkgs.lib.extend (final: prev: {
-        my = import ./lib {
-          inherit inputs;
-          lib = final;
-          pkgs = nixpkgs.legacyPackages.x86_64-linux;
-        };
-      });
+      lib = nixpkgs.lib.extend (
+        final: prev: {
+          my = import ./lib {
+            inherit inputs;
+            lib = final;
+            pkgs = nixpkgs.legacyPackages.x86_64-linux;
+          };
+        }
+      );
 
       # Now we can use the system utilities from our lib
-      inherit (lib.my) mapModulesRec mapHosts;
+      inherit (lib.my) mapModulesRec;
 
-    in {
+    in
+    {
       lib = lib.my;
 
       nixosModules = mapModulesRec ./modules import;
 
       nixosConfigurations = {
-        x86-host =
-          lib.my.mkHost ./hosts/x86-host.nix { system = "x86_64-linux"; };
+        ix = lib.my.mkHost ./hosts/ix { system = "x86_64-linux"; };
         kaitain = nixos-raspberrypi.lib.nixosInstaller {
           specialArgs = inputs;
           modules = [
-            ({ config, pkgs, lib, nixos-raspberrypi, disko, ... }: {
-              imports = with nixos-raspberrypi.nixosModules; [
-                raspberry-pi-4.base
-                raspberry-pi-4.display-vc4
-                raspberry-pi-4.bluetooth
-              ];
-            })
+            (
+              {
+                config,
+                pkgs,
+                lib,
+                nixos-raspberrypi,
+                disko,
+                ...
+              }:
+              {
+                imports = with nixos-raspberrypi.nixosModules; [
+                  raspberry-pi-4.base
+                  raspberry-pi-4.display-vc4
+                  raspberry-pi-4.bluetooth
+                ];
+              }
+            )
             ./hosts/kaitain
           ];
         };
