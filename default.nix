@@ -2,6 +2,8 @@
 { config, lib, pkgs, ... }:
 
 {
+  imports = lib.my.mapModulesRec' ./modules import;
+
   nix = {
     settings = {
       experimental-features = [ "nix-command" "flakes" ];
@@ -26,7 +28,7 @@
   console = {
     font = "Lat2-Terminus16";
     useXkbConfig = true;
-    keyMap = "es";
+    # keyMap = "es";
   };
 
   # Security

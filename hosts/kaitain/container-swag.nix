@@ -6,7 +6,15 @@
   ...
 }:
 
+let
+  services = [
+    "vpn"
+    "jellyfin"
+  ];
+  subdomains = lib.concatStringsSep ", " services;
+in
 {
+
   # Containers
   virtualisation.oci-containers.containers."swag" = {
     image = "lscr.io/linuxserver/swag";
@@ -18,7 +26,7 @@
       "PGID" = "1000";
       "PUID" = "1000";
       "STAGING" = "false";
-      "SUBDOMAINS" = "vpn";
+      "SUBDOMAINS" = subdomains;
       "TZ" = "America/Argentina/Cordoba";
       "URL" = "calvo.dev";
       "VALIDATION" = "http";
