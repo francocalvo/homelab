@@ -62,7 +62,7 @@
 
       nixosConfigurations = {
         ix = lib.my.mkHost ./hosts/ix { system = "x86_64-linux"; };
-        kaitain = nixos-raspberrypi.lib.nixosInstaller {
+        kaitain = nixos-raspberrypi.lib.nixosSystem {
           specialArgs = inputs;
           modules = [
             (

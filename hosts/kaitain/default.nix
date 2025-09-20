@@ -4,6 +4,7 @@
 
 {
   imports = [
+    ./hardware-configuration.nix
     ./container-networking.nix
 
     ./container-swag.nix
