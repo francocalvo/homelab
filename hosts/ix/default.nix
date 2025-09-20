@@ -8,7 +8,12 @@
 }:
 
 {
-  imports = [ ./disko-config.nix ];
+  imports = [
+    ./hardware-configuration.nix
+
+    # Containers
+    ./container-jellyfin.nix
+  ];
 
   homelab.podman = {
     enable = true;
@@ -17,8 +22,6 @@
       hostName = "ix";
     };
   };
-
-  disko.devices.disk.main.device = "/dev/sda";
 
   boot = {
     loader = {
@@ -52,6 +55,16 @@
     ];
   };
 
+  fileSystems."/mnt/media" = {
+    device = "192.168.1.251:/mnt/arrakis/media";
+    fsType = "nfs";
+    options = [
+      "rw"
+      "hard"
+      "intr"
+    ];
+  };
+
   # User configuration
   users.users.muad = {
     isNormalUser = true;
@@ -71,4 +84,5 @@
   };
 
   environment.systemPackages = with pkgs; [ neovim ];
+  system.stateVersion = "25.11";
 }
