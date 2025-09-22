@@ -10,6 +10,7 @@ let
   services = [
     "vpn"
     "jellyfin"
+    "cloud" # nextcloud
   ];
   subdomains = lib.concatStringsSep ", " services;
 in
