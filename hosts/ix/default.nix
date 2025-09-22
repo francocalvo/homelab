@@ -13,6 +13,7 @@
 
     # Containers
     ./container-jellyfin.nix
+    ./container-nextcloud.nix
   ];
 
   homelab.podman = {
@@ -57,6 +58,16 @@
 
   fileSystems."/mnt/media" = {
     device = "192.168.1.251:/mnt/arrakis/media";
+    fsType = "nfs";
+    options = [
+      "rw"
+      "hard"
+      "intr"
+    ];
+  };
+  
+  fileSystems."/mnt/nextcloud" = {
+    device = "192.168.1.251:/mnt/arrakis/nextcloud";
     fsType = "nfs";
     options = [
       "rw"
