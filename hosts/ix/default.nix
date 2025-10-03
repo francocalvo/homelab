@@ -13,7 +13,21 @@
 
     # Containers
     ./container-jellyfin.nix
+
+    # inputs.sops-nix.nixosModules.sops-nix
   ];
+
+  sops = {
+    defaultSopsFormat = "yaml";
+    defaultSopsFile = ../../secrets/secrets.yaml;
+    age.keyFile = "/home/muad/.config/sops/age/keys.txt";
+
+    secrets = {
+      speedtest_app_key = {
+        owner = config.users.users.muad.name;
+      };
+    };
+  };
 
   homelab.podman = {
     enable = true;

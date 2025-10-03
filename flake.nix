@@ -22,6 +22,11 @@
       # url = "github:nix-community/disko";
       inputs.nixpkgs.follows = "nixos-raspberrypi/nixpkgs";
     };
+
+    sops-nix = {
+      url = "github:Mic92/sops-nix";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
   };
 
   nixConfig = {
@@ -37,6 +42,7 @@
       nixpkgs,
       nixos-raspberrypi,
       disko,
+      sops-nix,
       ...
     }:
     let
