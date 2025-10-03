@@ -71,6 +71,7 @@
         kaitain = nixos-raspberrypi.lib.nixosSystem {
           specialArgs = inputs;
           modules = [
+            inputs.sops-nix.nixosModules.sops
             (
               {
                 config,

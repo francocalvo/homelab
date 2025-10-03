@@ -24,6 +24,11 @@
     };
   };
 
+  sops = {
+    defaultSopsFormat = "yaml";
+    defaultSopsFile = ../../secrets/kaitain.yaml;
+    age.keyFile = "/home/muad/.config/sops/age/keys.txt";
+    };
   virtualisation = {
     podman = {
       enable = true;
@@ -69,6 +74,9 @@
 
   # User configuration
   users.users.kaitain = {
+  networking.firewall.allowedTCPPorts = [
+    5201 # iperf3
+  ];
     isNormalUser = true;
     uid = 1000;
     group = "kaitain";
