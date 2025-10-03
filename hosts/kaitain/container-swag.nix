@@ -10,6 +10,7 @@ let
   services = [
     "vpn"
     "jellyfin"
+    "itracker" # speedtest-tracker
   ];
   subdomains = lib.concatStringsSep ", " services;
 in
