@@ -73,14 +73,17 @@
   };
 
   # User configuration
-  users.users.kaitain = {
   networking.firewall.allowedTCPPorts = [
     5201 # iperf3
   ];
+
+  environment.systemPackages = with pkgs; [ neovim ];
+
+  users.users.muad = {
     isNormalUser = true;
     uid = 1000;
-    group = "kaitain";
-    home = "/home/kaitain";
+    group = "muad";
+    home = "/home/muad";
     createHome = true;
     extraGroups = [
       "wheel"
@@ -89,19 +92,9 @@
     ];
   };
 
-  networking.firewall.allowedTCPPorts = [
-    5201 # iperf3
-  ];
-
-  users.groups.kaitain = {
+  users.groups.muad = {
     gid = 1000;
   };
-
-  environment.systemPackages = with pkgs; [
-    neovim
-    librecast
-    wireguard-tools
-  ];
 
   system.stateVersion = "25.05";
 }
