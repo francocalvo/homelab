@@ -28,7 +28,14 @@
     defaultSopsFormat = "yaml";
     defaultSopsFile = ../../secrets/kaitain.yaml;
     age.keyFile = "/home/muad/.config/sops/age/keys.txt";
+
+    secrets = {
+      speedtest_env = {
+        path = "/mnt/arrakis/speedtest-tracker/.env";
+      };
     };
+  };
+
   virtualisation = {
     podman = {
       enable = true;

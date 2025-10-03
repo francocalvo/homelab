@@ -10,7 +10,7 @@ let
   services = [
     "vpn"
     "jellyfin"
-    "itracker" # speedtest-tracker
+    "iperf" # speedtest-tracker
   ];
   subdomains = lib.concatStringsSep ", " services;
 in
@@ -20,7 +20,7 @@ in
   virtualisation.oci-containers.containers."swag" = {
     image = "lscr.io/linuxserver/swag";
     environment = {
-      "CERTPROVIDER" = "zerossl";
+      "CERTPROVIDER" = "letsencrypt";
       "DNSPLUGIN" = "cloudflare";
       "EMAIL" = "dns@fjc.ar";
       "ONLY_SUBDOMAINS" = "false";

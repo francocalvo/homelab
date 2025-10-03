@@ -10,12 +10,9 @@
   # Containers
   virtualisation.oci-containers.containers."speedtest-tracker" = {
     image = "lscr.io/linuxserver/speedtest-tracker:latest";
-    environment = {
-      "APP_KEY" = "$(cat ${config.sops.speedtest_app_key.path})";
-      "DB_CONNECTION" = "sqlite";
-      "PGID" = "1000";
-      "PUID" = "1000";
-    };
+    environmentFiles = [
+      "/mnt/arrakis/speedtest-tracker/.env"
+    ];
     volumes = [
       "/mnt/arrakis/speedtest-tracker:/config:rw"
     ];
