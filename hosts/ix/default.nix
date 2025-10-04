@@ -79,6 +79,16 @@
     ];
   };
 
+  fileSystems."/mnt/nextcloud" = {
+    device = "192.168.1.251:/mnt/arrakis/nextcloud";
+    fsType = "nfs";
+    options = [
+      "rw"
+      "hard"
+      "intr"
+    ];
+  };
+
   # User configuration
   users.users.muad = {
     isNormalUser = true;
