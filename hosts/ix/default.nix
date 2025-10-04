@@ -108,5 +108,8 @@
   };
 
   environment.systemPackages = with pkgs; [ neovim ];
-  system.stateVersion = "25.11";
+  system.stateVersion = "25.05";
+
+  boot.binfmt.emulatedSystems = ["aarch64-linux"];	
+  nix.settings.extra-platforms = config.boot.binfmt.emulatedSystems;
 }

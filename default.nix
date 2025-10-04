@@ -47,6 +47,7 @@
     tree
     unzip
     file
+    podman-compose
   ];
 
   # Users configuration
@@ -59,6 +60,16 @@
         # Add your SSH public key here
         # "ssh-rsa AAAAB3NzaC1yc2E... your-email@example.com"
       ];
+    };
+  };
+
+  programs.git = {
+    enable = true;
+    config = {
+      user = {
+        email = "dev@francocalvo.ar";
+        name = "francocalvo";
+      };
     };
   };
 
