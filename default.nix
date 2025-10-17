@@ -1,12 +1,20 @@
 # Default NixOS configuration shared across all hosts
-{ config, lib, pkgs, ... }:
+{
+  config,
+  lib,
+  pkgs,
+  ...
+}:
 
 {
   imports = lib.my.mapModulesRec' ./modules import;
 
   nix = {
     settings = {
-      experimental-features = [ "nix-command" "flakes" ];
+      experimental-features = [
+        "nix-command"
+        "flakes"
+      ];
       auto-optimise-store = true;
     };
     gc = {
@@ -55,7 +63,10 @@
     defaultUserShell = pkgs.zsh;
     users.muad = {
       isNormalUser = true;
-      extraGroups = [ "wheel" "networkmanager" ];
+      extraGroups = [
+        "wheel"
+        "networkmanager"
+      ];
       openssh.authorizedKeys.keys = [
         # Add your SSH public key here
         # "ssh-rsa AAAAB3NzaC1yc2E... your-email@example.com"
@@ -72,6 +83,12 @@
       };
     };
   };
+
+  nix.settings.trusted-users = [
+    "root"
+    "muad"
+    "@wheel"
+  ];
 
   programs.zsh.enable = true;
 }
