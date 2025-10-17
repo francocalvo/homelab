@@ -5,6 +5,43 @@
   ...
 }:
 
+/*
+  # Deployment Notes
+
+  Most of this is automated, but here’s the manual steps we did to get everything
+  working after first launch.
+
+  1. **Fix ownership/permissions (host)**
+     - `chown -R 33:33 /mnt/nextcloud`
+     - `chown -R 33:33 /home/muad/containers/nextcloud/data`
+     - (Ensure the dataset is read-write; on ZFS:
+       `zfs set readonly=off <pool/dataset>`)
+
+  We then check this inside the containers:
+
+       * `podman-compose exec -u 33:33 app  sh -lc 'touch /var/www/html/data/.w && rm /var/www/html/data/.w'`
+       * `podman-compose exec -u 33:33 cron sh -lc 'touch /var/www/html/data/.w && rm /var/www/html/data/.w'`
+
+  3. **Trust hosts / proxy awareness via OCC needed for notify_push**
+     - `podman-compose exec -u 33:33 app php occ config:system:set trusted_domains 4 --value=webserver`
+
+  4. **Run notify_push setup (via OCC)**
+     - `podman-compose exec -u 33:33 app php occ app:install notify_push`
+     - `podman-compose exec -u 33:33 app php occ notify_push:setup https://cloud.calvo.dev/push`
+
+  5. **Connectivity sanity checks**
+     - Backend proxy path:
+       `podman-compose exec webserver curl -vk http://127.0.0.1/push/test/cookie`
+     - Public URL from app:
+       `podman-compose exec app curl -vk https://cloud.calvo.dev/push/test/cookie`
+     - Nextcloud internal self-test:
+       `podman-compose exec notify_push sh -lc 'apk add --no-cache curl >/dev/null 2>&1 || true; curl -vk http://webserver/index.php/apps/notify_push/test/version'`
+
+  # References
+
+  - https://help.nextcloud.com/t/nextcloud-docker-compose-setup-with-caddy-2024/204846
+*/
+
 let
   inherit (pkgs) lib;
   nextcloud_version = "32.0.0-fpm";
