@@ -13,18 +13,17 @@
 
     # Containers
     ./container-jellyfin.nix
-
-    # inputs.sops-nix.nixosModules.sops-nix
+    ./container-nextcloud.nix
   ];
 
   sops = {
     defaultSopsFormat = "yaml";
-    defaultSopsFile = ../../secrets/secrets.yaml;
+    defaultSopsFile = ../../secrets/ix.yaml;
     age.keyFile = "/home/muad/.config/sops/age/keys.txt";
 
     secrets = {
-      speedtest_app_key = {
-        owner = config.users.users.muad.name;
+      nextcloud_env = {
+        path = "/mnt/arrakis/nextcloud/.env";
       };
     };
   };
@@ -79,6 +78,17 @@
     ];
   };
 
+  fileSystems."/mnt/nextcloud" = {
+    device = "192.168.1.251:/mnt/arrakis/nextcloud";
+    fsType = "nfs";
+    options = [
+      "rw"
+      "hard"
+      "intr"
+      "nolock"
+    ];
+  };
+
   # User configuration
   users.users.muad = {
     isNormalUser = true;
@@ -98,5 +108,8 @@
   };
 
   environment.systemPackages = with pkgs; [ neovim ];
-  system.stateVersion = "25.11";
+  system.stateVersion = "25.05";
+
+  boot.binfmt.emulatedSystems = [ "aarch64-linux" ];
+  nix.settings.extra-platforms = config.boot.binfmt.emulatedSystems;
 }

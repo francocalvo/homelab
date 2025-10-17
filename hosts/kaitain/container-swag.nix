@@ -8,9 +8,10 @@
 
 let
   services = [
-    "vpn"
-    "jellyfin"
-    "iperf" # speedtest-tracker
+    "vpn"         # wg-easy
+    "jellyfin"    # jellyfin
+    "iperf"       # speedtest-tracker
+    "cloud"       # nextcloud
   ];
   subdomains = lib.concatStringsSep ", " services;
 in
