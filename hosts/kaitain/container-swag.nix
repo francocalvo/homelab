@@ -12,6 +12,7 @@ let
     "jellyfin"    # jellyfin
     "iperf"       # speedtest-tracker
     "cloud"       # nextcloud
+    "bag"         # wallabag
   ];
   subdomains = lib.concatStringsSep ", " services;
 in

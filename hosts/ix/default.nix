@@ -14,6 +14,7 @@
     # Containers
     ./container-jellyfin.nix
     ./container-nextcloud.nix
+    ./container-wallabag.nix
   ];
 
   sops = {
@@ -24,6 +25,10 @@
     secrets = {
       nextcloud_env = {
         path = "/mnt/arrakis/nextcloud/.env";
+      };
+
+      wallabag_env = {
+        path = "/mnt/arrakis/wallabag/.env";
       };
     };
   };
