@@ -1,3 +1,36 @@
+# clawdbot VM - Ubuntu 24.04 with Node.js/NPM
+# SSH: ssh -J muad@192.168.1.4 muad@$(virsh net-dhcp-leases default | awk '/clawdbot/{print $5}' | cut -d/ -f1)
+#
+# Manual bootstrap (run once on ix after deploying this config):
+#
+# 1. Download Ubuntu cloud image and resize disk:
+#    wget -O /mnt/arrakis/clawdbot/disk/clawdbot.qcow2 https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+#    qemu-img resize /mnt/arrakis/clawdbot/disk/clawdbot.qcow2 50G
+#
+# 2. Create cloud-init meta-data:
+#    cat > /mnt/arrakis/clawdbot/meta-data <<< $'instance-id: clawdbot\nlocal-hostname: clawdbot'
+#
+# 3. Create cloud-init user-data:
+#    cat > /mnt/arrakis/clawdbot/user-data << 'EOF'
+#    #cloud-config
+#    users:
+#      - name: muad
+#        sudo: ALL=(ALL) NOPASSWD:ALL
+#        ssh_authorized_keys:
+#          - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICPY19qVNxrSt4Ulb1C6L661wa6h0+GV+tX3HjsmUonl
+#          - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPaFk0BPHPq4TwAhBcs6fHhoztmpbO+IQrpvxn4xsMDO
+#    packages: [qemu-guest-agent, nodejs, npm]
+#    runcmd: [systemctl enable --now qemu-guest-agent]
+#    EOF
+#
+# 4. Generate cloud-init ISO (requires cdrkit):
+#    cd /mnt/arrakis/clawdbot && nix-shell -p cdrkit --run 'genisoimage -output cloud-init.iso -volid cidata -joliet -rock user-data meta-data'
+#
+# 5. Start libvirt default network (VM uses NAT, not bridge):
+#    virsh net-start default && virsh net-autostart default
+#
+# 6. Start VM:
+#    virsh start clawdbot
 {
   config,
   lib,
