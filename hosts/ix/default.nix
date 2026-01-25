@@ -15,6 +15,9 @@
     ./container-jellyfin.nix
     ./container-nextcloud.nix
     ./container-wallabag.nix
+
+    # VMs
+    ./vm-clawdbot.nix
   ];
 
   sops = {
@@ -91,6 +94,16 @@
       "hard"
       "intr"
       "nolock"
+    ];
+  };
+
+  fileSystems."/mnt/arrakis/clawdbot" = {
+    device = "192.168.1.251:/mnt/arrakis/clawdbot";
+    fsType = "nfs";
+    options = [
+      "rw"
+      "hard"
+      "intr"
     ];
   };
 
