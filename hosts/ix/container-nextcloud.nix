@@ -204,14 +204,12 @@ in
       "ix-app"
     ];
     log-driver = "journald";
+    cmd = [
+      "-c"
+      "for i in $(seq 1 60); do curl -fsS http://webserver/index.php/login >/dev/null 2>&1 && break; echo 'notify_push: waiting for webserver...'; sleep 2; done; exec /var/www/html/custom_apps/notify_push/bin/x86_64/notify_push --port 7867 /var/www/html/config/config.php"
+    ];
     extraOptions = [
-      "--entrypoint=[\"sh\", \"-c\", \"for i in $(seq 1 60); do
-    curl -fsS http://webserver/index.php/login >/dev/null 2>&1 && break
-    echo \"notify_push: waiting for webserver... ()\"
-    sleep 2
-  done
-  exec /var/www/html/custom_apps/notify_push/bin/x86_64/notify_push --port \"7867\" /var/www/html/config/config.php
-  \"]"
+      "--entrypoint=sh"
       "--network-alias=notify_push"
       "--network=ix_default"
     ];
