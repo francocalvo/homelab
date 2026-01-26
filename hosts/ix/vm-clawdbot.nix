@@ -35,15 +35,25 @@ let
     #cloud-config
     users:
       - name: root
+        shell: /bin/bash
         ssh_authorized_keys:
 ${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
       - name: muad
+        shell: /bin/bash
+        groups: [sudo]
         ssh_authorized_keys:
 ${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
-    packages: [qemu-guest-agent, ca-certificates, curl, gnupg, nfs-common]
+      - name: calvo
+        shell: /bin/bash
+        sudo: ALL=(ALL) NOPASSWD:ALL
+        groups: [sudo]
+        ssh_authorized_keys:
+${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
+    packages: [qemu-guest-agent, ca-certificates, curl, gnupg, nfs-common, build-essential, git]
     mounts:
       - [ "192.168.1.251:/mnt/arrakis/ix/clawdbot/share", "/mnt/share", "nfs", "defaults,_netdev", "0", "0" ]
     runcmd:
+      - apt-get update && apt-get upgrade -y
       - mkdir -p /mnt/share
       - systemctl enable --now qemu-guest-agent
       - sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
@@ -52,6 +62,9 @@ ${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
       - apt-get install -y nodejs
       - sudo -u muad bash -c 'mkdir -p ~/.npm-global && npm config set prefix ~/.npm-global && echo "export PATH=~/.npm-global/bin:$PATH" >> ~/.bashrc'
       - curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm
+      - NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+      - echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/muad/.bashrc
+      - echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/calvo/.bashrc
   '';
 
   cloudInitIso = pkgs.runCommand "cloud-init.iso" {
