@@ -1,5 +1,6 @@
 # clawdbot VM - Ubuntu 24.04 with Node.js/NPM
-# SSH: ssh -J muad@192.168.1.4 muad@$(virsh net-dhcp-leases default | awk '/clawdbot/{print $5}' | cut -d/ -f1)
+# Uses macvtap (direct mode) - VM gets IP on main network (192.168.1.x), no bridge needed
+# SSH: ssh muad@<VM_IP>  (check router DHCP leases or: virsh domifaddr clawdbot --source agent)
 #
 # Manual bootstrap (run once on ix after deploying this config):
 #
@@ -19,17 +20,18 @@
 #        ssh_authorized_keys:
 #          - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICPY19qVNxrSt4Ulb1C6L661wa6h0+GV+tX3HjsmUonl
 #          - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPaFk0BPHPq4TwAhBcs6fHhoztmpbO+IQrpvxn4xsMDO
-#    packages: [qemu-guest-agent, nodejs, npm]
-#    runcmd: [systemctl enable --now qemu-guest-agent]
+#    packages: [qemu-guest-agent, ca-certificates, curl, gnupg]
+#    runcmd:
+#      - systemctl enable --now qemu-guest-agent
+#      - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
+#      - apt-get install -y nodejs
+#      - sudo -u muad bash -c 'mkdir -p ~/.npm-global && npm config set prefix ~/.npm-global && echo "export PATH=~/.npm-global/bin:\$PATH" >> ~/.bashrc'
 #    EOF
 #
 # 4. Generate cloud-init ISO (requires cdrkit):
 #    cd /mnt/arrakis/clawdbot && nix-shell -p cdrkit --run 'genisoimage -output cloud-init.iso -volid cidata -joliet -rock user-data meta-data'
 #
-# 5. Start libvirt default network (VM uses NAT, not bridge):
-#    virsh net-start default && virsh net-autostart default
-#
-# 6. Start VM:
+# 5. Start VM:
 #    virsh start clawdbot
 {
   config,
@@ -84,8 +86,8 @@ let
           <target dev='sda' bus='sata'/>
           <readonly/>
         </disk>
-        <interface type='bridge'>
-          <source bridge='br0'/>
+        <interface type='direct'>
+          <source dev='enp3s0' mode='bridge'/>
           <model type='virtio'/>
         </interface>
         <serial type='pty'>
