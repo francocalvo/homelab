@@ -57,7 +57,10 @@ ${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
   cloudInitIso = pkgs.runCommand "cloud-init.iso" {
     nativeBuildInputs = [ pkgs.cdrkit ];
   } ''
-    genisoimage -output $out -volid cidata -joliet -rock ${userData} ${metaData}
+    mkdir -p cidata
+    cp ${userData} cidata/user-data
+    cp ${metaData} cidata/meta-data
+    genisoimage -output $out -volid cidata -joliet -rock cidata/
   '';
 
   vmXmlFile = pkgs.writeText "${vmConfig.name}.xml" ''
