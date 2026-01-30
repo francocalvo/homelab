@@ -1,11 +1,11 @@
-# clawdbot VM - Ubuntu 24.04 with Node.js/NPM and Nix
+# OpenClaw VM - Ubuntu 24.04 with Node.js 24, NPM, and Nix
 # Uses macvtap (direct mode) - VM gets IP on main network (192.168.1.x)
 # SSH: ssh root@<VM_IP> or ssh muad@<VM_IP>
 #
 # Manual bootstrap (run once after deploying this config):
-#   wget -O /mnt/arrakis/clawdbot/disk/clawdbot.qcow2 https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-#   qemu-img resize /mnt/arrakis/clawdbot/disk/clawdbot.qcow2 50G
-#   virsh start clawdbot
+#   wget -O /mnt/arrakis/openclaw/disk/openclaw.qcow2 https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+#   qemu-img resize /mnt/arrakis/openclaw/disk/openclaw.qcow2 50G
+#   virsh start openclaw
 {
   config,
   lib,
@@ -14,11 +14,11 @@
 }:
 let
   vmConfig = {
-    name = "clawdbot";
+    name = "openclaw";
     vcpus = 4;
     memory = 6144; # MB - balloon handles dynamic allocation
     diskSize = "50G";
-    dataPath = "/mnt/arrakis/clawdbot";
+    dataPath = "/mnt/arrakis/openclaw";
   };
 
   sshKeys = [
@@ -49,22 +49,22 @@ ${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
         groups: [sudo]
         ssh_authorized_keys:
 ${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
+    bootcmd:
+      - mkdir -p /mnt/share
     packages: [qemu-guest-agent, ca-certificates, curl, gnupg, nfs-common, build-essential, git]
     mounts:
-      - [ "192.168.1.251:/mnt/arrakis/ix/clawdbot/share", "/mnt/share", "nfs", "defaults,_netdev", "0", "0" ]
+      - [ "192.168.1.251:/mnt/arrakis/ix/openclaw/share", "/mnt/share", "nfs", "defaults,_netdev,nofail", "0", "0" ]
     runcmd:
-      - apt-get update && apt-get upgrade -y
-      - mkdir -p /mnt/share
-      - systemctl enable --now qemu-guest-agent
+      - DEBIAN_FRONTEND=noninteractive apt-get update
+      - DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+      - systemctl enable --now qemu-guest-agent || true
       - sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
       - systemctl restart ssh
-      - curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-      - apt-get install -y nodejs
-      - sudo -u muad bash -c 'mkdir -p ~/.npm-global && npm config set prefix ~/.npm-global && echo "export PATH=~/.npm-global/bin:$PATH" >> ~/.bashrc'
+      - curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+      - DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+      - sudo -H -u muad bash -c 'mkdir -p $HOME/.npm-global && npm config set prefix $HOME/.npm-global && echo "export PATH=\$HOME/.npm-global/bin:\$PATH" >> $HOME/.bashrc'
+      - sudo -H -u muad bash -c 'export PATH=$HOME/.npm-global/bin:$PATH && npm install -g openclaw || (echo "openclaw npm install failed (continuing)" >&2)'
       - curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm
-      - NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-      - echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/muad/.bashrc
-      - echo 'eval "$(/home/linuxbrew/.linuxbrew/bin/brew shellenv)"' >> /home/calvo/.bashrc
   '';
 
   cloudInitIso = pkgs.runCommand "cloud-init.iso" {
@@ -160,7 +160,7 @@ in
     };
 
     script = ''
-      sleep 2
+      ${pkgs.coreutils}/bin/sleep 2
       disk_path="${vmConfig.dataPath}/disk/${vmConfig.name}.qcow2"
       if [ ! -f "$disk_path" ]; then
         echo "Disk image missing: $disk_path" >&2
@@ -184,18 +184,18 @@ in
         ${pkgs.libvirt}/bin/virsh define ${vmXmlFile}
         echo "$new_hash" > "$xml_hash_file"
       fi
-      if ! ${pkgs.libvirt}/bin/virsh list --name | grep -q "^${vmConfig.name}$"; then
-        ${pkgs.libvirt}/bin/virsh start ${vmConfig.name} || true
+      if ! ${pkgs.gnugrep}/bin/grep -q "^${vmConfig.name}$" <(${pkgs.libvirt}/bin/virsh list --name); then
+        ${pkgs.libvirt}/bin/virsh start ${vmConfig.name}
       fi
     '';
 
     preStop = ''
       ${pkgs.libvirt}/bin/virsh shutdown ${vmConfig.name} || true
-      for i in $(seq 1 30); do
-        if ! ${pkgs.libvirt}/bin/virsh list --name | grep -q "^${vmConfig.name}$"; then
+      for i in $(${pkgs.coreutils}/bin/seq 1 30); do
+        if ! ${pkgs.gnugrep}/bin/grep -q "^${vmConfig.name}$" <(${pkgs.libvirt}/bin/virsh list --name); then
           exit 0
         fi
-        sleep 1
+        ${pkgs.coreutils}/bin/sleep 1
       done
       ${pkgs.libvirt}/bin/virsh destroy ${vmConfig.name} || true
     '';
