@@ -1,5 +1,70 @@
 # VM Notes: openclaw
 
+## Disk Management (QCOW2 Overlay System)
+
+The VM now uses a declarative QCOW2 overlay system for better reproducibility:
+
+- **Base image**: Stored in Nix store at `/nix/store/xxxx-ubuntu-noble-cloudimg/base.qcow2` (immutable)
+- **Overlay**: Mutable QCOW2 at `/mnt/arrakis/openclaw/disk/openclaw.qcow2` (copy-on-write)
+- **Automatic creation**: Overlay is created automatically on `nixos-rebuild switch`
+- **Base image pinned**: URL and sha256 hash are in the Nix configuration
+
+### Benefits
+
+- Base image is declarative and tracked in config
+- No manual disk download steps required
+- Change the hash → overlay recreates → clean reprovision
+- Delete overlay manually → reset to pristine on next switch
+- NFS persistence (already working) survives reprovisions
+
+### Operations
+
+| Task | Command |
+|------|---------|
+| Reset VM to pristine | `rm /mnt/arrakis/openclaw/disk/openclaw.qcow2 && sudo systemctl restart libvirt-guest-openclaw` |
+| Update base image | Change URL/hash in config, `nixos-rebuild switch` (overlay auto-recreates) |
+| Check backing file | `qemu-img info /mnt/arrakis/openclaw/disk/openclaw.qcow2 \| grep backing` |
+| Reclaim old base images | `nix-collect-garbage` (after switching to new base) |
+
+### Migration from Old Setup
+
+If you're migrating from the previous manual disk setup:
+
+1. **Get the hash for the pinned image:**
+   ```bash
+   nix-prefetch-url https://cloud-images.ubuntu.com/noble/20260108/noble-server-cloudimg-amd64.img
+   ```
+   Update the `sha256` value in `hosts/ix/vm-clawdbot.nix`
+
+2. **Stop the current VM:**
+   ```bash
+   sudo virsh shutdown openclaw
+   ```
+
+3. **Backup current state (optional):**
+   ```bash
+   cp /mnt/arrakis/openclaw/disk/openclaw.qcow2 /mnt/arrakis/openclaw/disk/openclaw.qcow2.backup
+   ```
+
+4. **Remove the old disk image:**
+   ```bash
+   rm /mnt/arrakis/openclaw/disk/openclaw.qcow2
+   ```
+
+5. **Deploy the new config:**
+   ```bash
+   sudo nixos-rebuild switch
+   ```
+   This will build the base image in the Nix store and create the overlay automatically.
+
+6. **Verify:**
+   ```bash
+   qemu-img info /mnt/arrakis/openclaw/disk/openclaw.qcow2
+   ```
+   Should show `backing file: /nix/store/xxxx-ubuntu-noble-cloudimg/base.qcow2`
+
+---
+
 ## Current status
 - VM name: `openclaw`
 - Host: `ix` (NixOS)
@@ -12,7 +77,10 @@
 ## Config file
 - Nix file: `hosts/ix/vm-clawdbot.nix`
 - Cloud-init is generated via Nix and linked into `/mnt/arrakis/openclaw/cloud-init.iso`
-- `diskSize` is enforced: the service fails if missing, resizes up if smaller, errors if larger
+- **Disk management**: Uses Nix store base image with QCOW2 overlay (see "Disk Management" section above)
+  - Base image is declarative (pinned URL + hash in Nix)
+  - Overlay created automatically on `nixos-rebuild switch`
+  - Overlay recreates if backing file changes (change hash in config)
 - Libvirt XML is redefined only when the XML hash changes
 
 ## Config Persistence
@@ -37,23 +105,20 @@
 
 ## Recovery plan (recommended)
 1. Destroy the VM (not the definition):
-   - ` virsh destroy openclaw || true`
-2. Delete the qcow2:
-   - `sudo rm -f /mnt/arrakis/openclaw/disk/openclaw.qcow2`
-3. Re-download and resize the image:
-   - `sudo wget -O /mnt/arrakis/openclaw/disk/openclaw.qcow2 https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img`
-   - `sudo qemu-img resize /mnt/arrakis/openclaw/disk/openclaw.qcow2 50G`
-4. Start the VM:
-   - `sudo virsh start openclaw`
-5. Find the IP:
-   - Check router DHCP leases for MAC `52:54:00:3e:ed:7f` or hostname `openclaw`
-6. SSH:
-   - `ssh muad@<VM_IP>`
-7. Mount NFS share (if not mounted):
-   - `sudo mount /mnt/share`
-8. Verify config persistence:
-   - OpenClaw config should be automatically available via symlink `~/.openclaw` -> `/mnt/share/openclaw`
-   - Configs survive this recovery process without manual intervention
+    - `virsh destroy openclaw || true`
+2. Delete the overlay:
+    - `sudo rm -f /mnt/arrakis/openclaw/disk/openclaw.qcow2`
+3. Restart the service (overlay auto-created from base image):
+    - `sudo systemctl restart libvirt-guest-openclaw`
+4. Find the IP:
+    - Check router DHCP leases for MAC `52:54:00:3e:ed:7f` or hostname `openclaw`
+5. SSH:
+    - `ssh muad@<VM_IP>`
+6. Mount NFS share (if not mounted):
+    - `sudo mount /mnt/share`
+7. Verify config persistence:
+    - OpenClaw config should be automatically available via symlink `~/.openclaw` -> `/mnt/share/openclaw`
+    - Configs survive this recovery process without manual intervention
 
 ## Useful commands
 - VM state: `sudo virsh domstate openclaw`

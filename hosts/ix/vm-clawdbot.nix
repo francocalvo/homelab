@@ -3,12 +3,16 @@
 # SSH: ssh root@<VM_IP> or ssh muad@<VM_IP>
 #
 # Persistent config: OpenClaw config directory ~/.openclaw is symlinked to /mnt/share/openclaw
-# This survives VM re-provisioning (qcow2 replacement).
+# This survives VM re-provisioning (overlay recreation).
 #
-# Manual bootstrap (run once after deploying this config):
-#   wget -O /mnt/arrakis/openclaw/disk/openclaw.qcow2 https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
-#   qemu-img resize /mnt/arrakis/openclaw/disk/openclaw.qcow2 50G
-#   virsh start openclaw
+# Disk management: Uses Nix store for immutable base image with QCOW2 overlay for mutable state
+# - Base image: /nix/store/xxxx-ubuntu-noble-cloudimg/base.qcow2 (pinned, declarative)
+# - Overlay: /mnt/arrakis/openclaw/disk/openclaw.qcow2 (created automatically on nixos-rebuild switch)
+# - Update base: Change URL/hash in config, overlay auto-recreates
+# - Reset to pristine: rm /mnt/arrakis/openclaw/disk/openclaw.qcow2 && systemctl restart libvirt-guest-openclaw
+#
+# NOTE: To get the correct sha256 hash for the base image, run:
+#   nix-prefetch-url https://cloud-images.ubuntu.com/noble/20260108/noble-server-cloudimg-amd64.img
 {
   config,
   lib,
@@ -28,6 +32,27 @@ let
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAICPY19qVNxrSt4Ulb1C6L661wa6h0+GV+tX3HjsmUonl"
     "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPaFk0BPHPq4TwAhBcs6fHhoztmpbO+IQrpvxn4xsMDO"
   ];
+
+  # Declarative base image in Nix store (immutable)
+  # Use nix-prefetch-url to get the sha256 for the URL below
+  baseImage = pkgs.stdenv.mkDerivation {
+    name = "ubuntu-noble-cloudimg";
+
+    src = pkgs.fetchurl {
+      url = "https://cloud-images.ubuntu.com/noble/20260108/noble-server-cloudimg-amd64.img";
+      # Run: nix-prefetch-url https://cloud-images.ubuntu.com/noble/20260108/noble-server-cloudimg-amd64.img
+      sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+    };
+
+    nativeBuildInputs = [ pkgs.qemu ];
+
+    buildCommand = ''
+      mkdir -p $out
+      cp $src $out/base.qcow2
+      chmod +w $out/base.qcow2
+      qemu-img resize $out/base.qcow2 ${vmConfig.diskSize}
+    '';
+  };
 
   metaData = pkgs.writeText "meta-data" ''
     instance-id: ${vmConfig.name}
@@ -169,20 +194,27 @@ in
     };
 
     script = ''
+      set -euo pipefail
+
       ${pkgs.coreutils}/bin/sleep 2
+
       disk_path="${vmConfig.dataPath}/disk/${vmConfig.name}.qcow2"
-      if [ ! -f "$disk_path" ]; then
-        echo "Disk image missing: $disk_path" >&2
-        exit 1
+      base_path="${baseImage}/base.qcow2"
+
+      # Query overlay's current backing file (empty if missing/invalid)
+      current_backing="$(${pkgs.qemu}/bin/qemu-img info --output=json "$disk_path" 2>/dev/null \
+        | ${pkgs.jq}/bin/jq -r '."backing-filename" // empty' 2>/dev/null || true)"
+
+      # Recreate overlay if missing or backing file changed
+      if [ ! -f "$disk_path" ] || [ "$current_backing" != "$base_path" ]; then
+        echo "Creating overlay: $disk_path -> $base_path"
+        rm -f "$disk_path"
+        ${pkgs.qemu}/bin/qemu-img create -f qcow2 -b "$base_path" -F qcow2 "$disk_path"
+        chown root:root "$disk_path"
+        chmod 0640 "$disk_path"
       fi
-      current_bytes=$(${pkgs.qemu}/bin/qemu-img info --output=json "$disk_path" | ${pkgs.jq}/bin/jq -r '."virtual-size"')
-      target_bytes=$(${pkgs.coreutils}/bin/numfmt --from=iec "${vmConfig.diskSize}")
-      if [ "$current_bytes" -lt "$target_bytes" ]; then
-        ${pkgs.qemu}/bin/qemu-img resize "$disk_path" "${vmConfig.diskSize}"
-      elif [ "$current_bytes" -gt "$target_bytes" ]; then
-        echo "Disk image larger than configured size (${vmConfig.diskSize}): $disk_path" >&2
-        exit 1
-      fi
+
+      # XML definition tracking
       xml_hash_file="${vmConfig.dataPath}/.${vmConfig.name}.xml.sha256"
       new_hash=$(${pkgs.coreutils}/bin/sha256sum ${vmXmlFile} | ${pkgs.gawk}/bin/awk '{print $1}')
       old_hash=""
