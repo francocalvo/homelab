@@ -2,6 +2,9 @@
 # Uses macvtap (direct mode) - VM gets IP on main network (192.168.1.x)
 # SSH: ssh root@<VM_IP> or ssh muad@<VM_IP>
 #
+# Persistent config: OpenClaw config directory ~/.openclaw is symlinked to /mnt/share/openclaw
+# This survives VM re-provisioning (qcow2 replacement).
+#
 # Manual bootstrap (run once after deploying this config):
 #   wget -O /mnt/arrakis/openclaw/disk/openclaw.qcow2 https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
 #   qemu-img resize /mnt/arrakis/openclaw/disk/openclaw.qcow2 50G
@@ -65,6 +68,11 @@ ${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
       - sudo -H -u muad bash -c 'mkdir -p $HOME/.npm-global && npm config set prefix $HOME/.npm-global && echo "export PATH=\$HOME/.npm-global/bin:\$PATH" >> $HOME/.bashrc'
       - sudo -H -u muad bash -c 'export PATH=$HOME/.npm-global/bin:$PATH && npm install -g openclaw || (echo "openclaw npm install failed (continuing)" >&2)'
       - curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm
+      # Create OpenClaw persistent config directory on NFS share
+      - mkdir -p /mnt/share/openclaw
+      # Ensure OpenClaw config is symlinked to persistent share for muad user
+      - sudo -H -u muad bash -c 'if [ -e "$HOME/.openclaw" ] && [ ! -L "$HOME/.openclaw" ]; then mv "$HOME/.openclaw" "$HOME/.openclaw.backup.$(date +%s)"; fi'
+      - sudo -H -u muad bash -c 'ln -sfn /mnt/share/openclaw "$HOME/.openclaw"'
   '';
 
   cloudInitIso = pkgs.runCommand "cloud-init.iso" {
@@ -145,6 +153,7 @@ in
   systemd.tmpfiles.rules = [
     "d ${vmConfig.dataPath} 0755 root root -"
     "d ${vmConfig.dataPath}/disk 0755 root root -"
+    "d ${vmConfig.dataPath}/share 0755 root root -"
     "L+ ${vmConfig.dataPath}/cloud-init.iso - - - - ${cloudInitIso}"
   ];
 

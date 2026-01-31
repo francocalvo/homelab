@@ -15,6 +15,13 @@
 - `diskSize` is enforced: the service fails if missing, resizes up if smaller, errors if larger
 - Libvirt XML is redefined only when the XML hash changes
 
+## Config Persistence
+- **OpenClaw config persistence**: The VM's `~/.openclaw` directory is symlinked to `/mnt/share/openclaw` (NFS)
+- This ensures OpenClaw configuration survives VM re-provisioning (qcow2 replacement)
+- The symlink is created automatically during cloud-init's `runcmd` phase
+- **To reset OpenClaw config**: Delete the contents of `/mnt/share/openclaw` on the host (after stopping the VM)
+- **To verify the symlink**: Inside the VM as user `muad`, run `ls -la ~/.openclaw` - it should point to `/mnt/share/openclaw`
+
 ## Recent actions
 - Old VM definition removed: `virsh shutdown/destroy/undefine openclaw`
 - Entire `/mnt/arrakis/openclaw` directory deleted
@@ -30,7 +37,7 @@
 
 ## Recovery plan (recommended)
 1. Destroy the VM (not the definition):
-   - `sudo virsh destroy openclaw || true`
+   - ` virsh destroy openclaw || true`
 2. Delete the qcow2:
    - `sudo rm -f /mnt/arrakis/openclaw/disk/openclaw.qcow2`
 3. Re-download and resize the image:
@@ -44,6 +51,9 @@
    - `ssh muad@<VM_IP>`
 7. Mount NFS share (if not mounted):
    - `sudo mount /mnt/share`
+8. Verify config persistence:
+   - OpenClaw config should be automatically available via symlink `~/.openclaw` -> `/mnt/share/openclaw`
+   - Configs survive this recovery process without manual intervention
 
 ## Useful commands
 - VM state: `sudo virsh domstate openclaw`
@@ -54,12 +64,14 @@
 
 ## Notes
 - Cloud-init includes:
-  - Users: `root`, `muad`, `calvo` with SSH keys
-  - bootcmd: creates `/mnt/share` directory early
-  - Packages: `qemu-guest-agent`, `ca-certificates`, `curl`, `gnupg`, `nfs-common`, `build-essential`, `git`
-  - Mount: NFS `192.168.1.251:/mnt/arrakis/ix/openclaw/share` -> `/mnt/share` (with nofail for robustness, auto-mounted)
-  - runcmd: non-interactive apt operations, enable agent, SSH hardening, Node.js 24, Nix installer, `openclaw` npm install
+   - Users: `root`, `muad`, `calvo` with SSH keys
+   - bootcmd: creates `/mnt/share` directory early
+   - Packages: `qemu-guest-agent`, `ca-certificates`, `curl`, `gnupg`, `nfs-common`, `build-essential`, `git`
+   - Mount: NFS `192.168.1.251:/mnt/arrakis/ix/openclaw/share` -> `/mnt/share` (with nofail for robustness, auto-mounted)
+   - runcmd: non-interactive apt operations, enable agent, SSH hardening, Node.js 24, Nix installer, `openclaw` npm install
+   - **Config persistence**: Creates `/mnt/share/openclaw` and symlinks `~/.openclaw` -> `/mnt/share/openclaw` for user `muad`
 - `openclaw` is installed globally for user `muad` in `~/.npm-global/bin/openclaw`
+- OpenClaw configuration is stored persistently in `/mnt/share/openclaw` (NFS) via the symlink
 - If guest agent is not responding but SSH works, you can enable it inside the VM:
    - `sudo systemctl enable --now qemu-guest-agent`
 - Verification: `npm -g ls --depth=0` or `npm -g bin` to check installed packages
