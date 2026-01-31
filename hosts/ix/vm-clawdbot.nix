@@ -34,7 +34,7 @@ let
   ];
 
   # Declarative base image in Nix store (immutable)
-  # Use nix-prefetch-url to get the sha256 for the URL below
+  # Use nix-prefetch-url to get the sha256 hash for the URL below
   baseImage = pkgs.stdenv.mkDerivation {
     name = "ubuntu-noble-cloudimg";
 
@@ -45,13 +45,16 @@ let
     };
 
     nativeBuildInputs = [ pkgs.qemu ];
+    dontUnpack = true;
 
     buildCommand = ''
-      # Convert (normalizes format) → resize → install read-only
-      qemu-img convert -f qcow2 -O qcow2 $src temp.qcow2
-      qemu-img resize temp.qcow2 ${vmConfig.diskSize}
-      mkdir -p $out
-      install -m 0444 temp.qcow2 $out/base.qcow2
+      set -euo pipefail
+      mkdir -p "$out"
+
+      cp "$src" image.in
+      ${pkgs.qemu}/bin/qemu-img convert -O qcow2 image.in temp.qcow2
+      ${pkgs.qemu}/bin/qemu-img resize temp.qcow2 ${vmConfig.diskSize}
+      install -m 0444 temp.qcow2 "$out/base.qcow2"
     '';
   };
 
@@ -61,54 +64,57 @@ let
   '';
 
   userData = pkgs.writeText "user-data" ''
-    #cloud-config
-    users:
-      - name: root
-        shell: /bin/bash
-        ssh_authorized_keys:
-${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
-      - name: muad
-        shell: /bin/bash
-        groups: [sudo]
-        ssh_authorized_keys:
-${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
-      - name: calvo
-        shell: /bin/bash
-        sudo: ALL=(ALL) NOPASSWD:ALL
-        groups: [sudo]
-        ssh_authorized_keys:
-${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
-    bootcmd:
-      - mkdir -p /mnt/share
-    packages: [qemu-guest-agent, ca-certificates, curl, gnupg, nfs-common, build-essential, git]
-    mounts:
-      - [ "192.168.1.251:/mnt/arrakis/ix/openclaw/share", "/mnt/share", "nfs", "defaults,_netdev,nofail", "0", "0" ]
-    runcmd:
-      - DEBIAN_FRONTEND=noninteractive apt-get update
-      - DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
-      - systemctl enable --now qemu-guest-agent || true
-      - sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
-      - systemctl restart ssh
-      - curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
-      - DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
-      - sudo -H -u muad bash -c 'mkdir -p $HOME/.npm-global && npm config set prefix $HOME/.npm-global && echo "export PATH=\$HOME/.npm-global/bin:\$PATH" >> $HOME/.bashrc'
-      - sudo -H -u muad bash -c 'export PATH=$HOME/.npm-global/bin:$PATH && npm install -g openclaw || (echo "openclaw npm install failed (continuing)" >&2)'
-      - curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm
-      # Create OpenClaw persistent config directory on NFS share
-      - mkdir -p /mnt/share/openclaw
-      # Ensure OpenClaw config is symlinked to persistent share for muad user
-      - sudo -H -u muad bash -c 'if [ -e "$HOME/.openclaw" ] && [ ! -L "$HOME/.openclaw" ]; then mv "$HOME/.openclaw" "$HOME/.openclaw.backup.$(date +%s)"; fi'
-      - sudo -H -u muad bash -c 'ln -sfn /mnt/share/openclaw "$HOME/.openclaw"'
+        #cloud-config
+        users:
+          - name: root
+            shell: /bin/bash
+            ssh_authorized_keys:
+    ${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
+          - name: muad
+            shell: /bin/bash
+            groups: [sudo]
+            ssh_authorized_keys:
+    ${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
+          - name: calvo
+            shell: /bin/bash
+            sudo: ALL=(ALL) NOPASSWD:ALL
+            groups: [sudo]
+            ssh_authorized_keys:
+    ${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
+        bootcmd:
+          - mkdir -p /mnt/share
+        packages: [qemu-guest-agent, ca-certificates, curl, gnupg, nfs-common, build-essential, git]
+        mounts:
+          - [ "192.168.1.251:/mnt/arrakis/ix/openclaw/share", "/mnt/share", "nfs", "defaults,_netdev,nofail", "0", "0" ]
+        runcmd:
+          - DEBIAN_FRONTEND=noninteractive apt-get update
+          - DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+          - systemctl enable --now qemu-guest-agent || true
+          - sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
+          - systemctl restart ssh
+          - curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
+          - DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
+          - sudo -H -u muad bash -c 'mkdir -p $HOME/.npm-global && npm config set prefix $HOME/.npm-global && echo "export PATH=\$HOME/.npm-global/bin:\$PATH" >> $HOME/.bashrc'
+          - sudo -H -u muad bash -c 'export PATH=$HOME/.npm-global/bin:$PATH && npm install -g openclaw || (echo "openclaw npm install failed (continuing)" >&2)'
+          - curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm
+          # Create OpenClaw persistent config directory on NFS share
+          - mkdir -p /mnt/share/openclaw
+          # Ensure OpenClaw config is symlinked to persistent share for muad user
+          - sudo -H -u muad bash -c 'if [ -e "$HOME/.openclaw" ] && [ ! -L "$HOME/.openclaw" ]; then mv "$HOME/.openclaw" "$HOME/.openclaw.backup.$(date +%s)"; fi'
+          - sudo -H -u muad bash -c 'ln -sfn /mnt/share/openclaw "$HOME/.openclaw"'
   '';
 
-  cloudInitIso = pkgs.runCommand "cloud-init.iso" {
-    nativeBuildInputs = [ pkgs.cdrkit ];
-  } ''
-    mkdir -p cidata
-    cp ${userData} cidata/user-data
-    cp ${metaData} cidata/meta-data
-    genisoimage -output $out -volid cidata -joliet -rock cidata/
-  '';
+  cloudInitIso =
+    pkgs.runCommand "cloud-init.iso"
+      {
+        nativeBuildInputs = [ pkgs.cdrkit ];
+      }
+      ''
+        mkdir -p cidata
+        cp ${userData} cidata/user-data
+        cp ${metaData} cidata/meta-data
+        genisoimage -output $out -volid cidata -joliet -rock cidata/
+      '';
 
   vmXmlFile = pkgs.writeText "${vmConfig.name}.xml" ''
     <domain type='kvm'>
@@ -192,7 +198,14 @@ in
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
+      RequiresMountsFor = [ vmConfig.dataPath ];
     };
+
+    restartTriggers = [
+      baseImage
+      cloudInitIso
+      vmXmlFile
+    ];
 
     script = ''
       set -euo pipefail
@@ -203,29 +216,27 @@ in
       base_path="${baseImage}/base.qcow2"
       lock_file="${vmConfig.dataPath}/disk/.${vmConfig.name}.lock"
 
-      # Query overlay's current backing file
-      # -U: allow reading while VM may have image locked
-      # Prefer full-backing-filename (absolute) over backing-filename (may be relative)
-      current_backing="$(${pkgs.qemu}/bin/qemu-img info -U --output=json "$disk_path" 2>/dev/null \
-        | ${pkgs.jq}/bin/jq -r '."full-backing-filename" // ."backing-filename" // empty' 2>/dev/null || true)"
+      (
+        ${pkgs.flock}/bin/flock -x 200
 
-      # Recreate overlay if missing or backing file changed
-      if [ ! -f "$disk_path" ] || [ "$current_backing" != "$base_path" ]; then
-        echo "Creating overlay: $disk_path -> $base_path"
+        # Query overlay's current backing file (inside lock)
+        # -U: allow reading while VM may have image locked
+        # Prefer full-backing-filename (absolute) over backing-filename (may be relative)
+        current_backing="$(${pkgs.qemu}/bin/qemu-img info -U --output=json "$disk_path" 2>/dev/null \
+          | ${pkgs.jq}/bin/jq -r '."full-backing-filename" // ."backing-filename" // empty' 2>/dev/null || true)"
 
-        # Lock + atomic creation to prevent races and partial writes
-        (
-          ${pkgs.flock}/bin/flock -x 200
+        # Recreate overlay if missing or backing file changed
+        if [ ! -f "$disk_path" ] || [ "$current_backing" != "$base_path" ]; then
+          echo "Creating overlay: $disk_path -> $base_path"
 
-          temp_overlay="${vmConfig.dataPath}/disk/.${vmConfig.name}.qcow2.tmp"
-          rm -f "$temp_overlay"
-          ${pkgs.qemu}/bin/qemu-img create -f qcow2 -b "$base_path" -F qcow2 "$temp_overlay"
-          chown root:root "$temp_overlay"
-          chmod 0640 "$temp_overlay"
-          mv "$temp_overlay" "$disk_path"
+          tmp="$(${pkgs.coreutils}/bin/mktemp -p "$(dirname "$disk_path")" ".${vmConfig.name}.qcow2.XXXXXX")"
+          ${pkgs.qemu}/bin/qemu-img create -f qcow2 -b "$base_path" -F qcow2 "$tmp"
+          chown libvirt-qemu:libvirt-qemu "$tmp"
+          chmod 0640 "$tmp"
+          mv -f "$tmp" "$disk_path"
+        fi
 
-        ) 200>"$lock_file"
-      fi
+      ) 200>"$lock_file"
 
       # XML definition tracking
       xml_hash_file="${vmConfig.dataPath}/.${vmConfig.name}.xml.sha256"

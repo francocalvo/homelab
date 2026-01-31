@@ -4,11 +4,12 @@
 
 The VM now uses a declarative QCOW2 overlay system for better reproducibility:
 
-- **Base image**: Stored in Nix store at `/nix/store/xxxx-ubuntu-noble-cloudimg/base.qcow2` (immutable, 0444 permissions)
+- **Base image**: Stored in Nix store at `/nix/store/xxxx-ubuntu-noble-cloudimg/base.qcow2` (immutable, 0444 permissions, no unpack)
 - **Overlay**: Mutable QCOW2 at `/mnt/arrakis/openclaw/disk/openclaw.qcow2` (copy-on-write)
-- **Automatic creation**: Overlay is created atomically on `nixos-rebuild switch`
-- **Base image pinned**: URL and sha256 hash are in the Nix configuration
+- **Automatic creation**: Overlay is created atomically on base/ISO/XML changes via `restartTriggers`
+- **Base image pinned**: URL and sha256 hash are in Nix configuration
 - **Lock file**: `/mnt/arrakis/openclaw/disk/.openclaw.lock` prevents concurrent creation
+- **Ownership**: `libvirt-qemu:libvirt-qemu` for proper libvirt access
 
 ### Benefits
 
