@@ -4,18 +4,24 @@
 
 The VM now uses a declarative QCOW2 overlay system for better reproducibility:
 
-- **Base image**: Stored in Nix store at `/nix/store/xxxx-ubuntu-noble-cloudimg/base.qcow2` (immutable)
+- **Base image**: Stored in Nix store at `/nix/store/xxxx-ubuntu-noble-cloudimg/base.qcow2` (immutable, 0444 permissions)
 - **Overlay**: Mutable QCOW2 at `/mnt/arrakis/openclaw/disk/openclaw.qcow2` (copy-on-write)
-- **Automatic creation**: Overlay is created automatically on `nixos-rebuild switch`
+- **Automatic creation**: Overlay is created atomically on `nixos-rebuild switch`
 - **Base image pinned**: URL and sha256 hash are in the Nix configuration
+- **Lock file**: `/mnt/arrakis/openclaw/disk/.openclaw.lock` prevents concurrent creation
 
 ### Benefits
 
 - Base image is declarative and tracked in config
 - No manual disk download steps required
-- Change the hash → overlay recreates → clean reprovision
+- Change hash → overlay recreates → clean reprovision
 - Delete overlay manually → reset to pristine on next switch
 - NFS persistence (already working) survives reprovisions
+- **Hardening improvements**:
+  - Atomic overlay creation prevents partial writes
+  - Lock-based coordination prevents race conditions
+  - VM can be running during rebuild (qemu-img -U)
+  - Base image is explicitly read-only (0444 permissions)
 
 ### Operations
 
@@ -62,6 +68,8 @@ If you're migrating from the previous manual disk setup:
    qemu-img info /mnt/arrakis/openclaw/disk/openclaw.qcow2
    ```
    Should show `backing file: /nix/store/xxxx-ubuntu-noble-cloudimg/base.qcow2`
+
+**Note**: A lock file at `/mnt/arrakis/openclaw/disk/.openclaw.lock` is used during overlay creation. If overlay creation is interrupted (e.g., crash), clean up any `.tmp` files in the disk directory and restart the service.
 
 ---
 

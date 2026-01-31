@@ -47,10 +47,11 @@ let
     nativeBuildInputs = [ pkgs.qemu ];
 
     buildCommand = ''
+      # Convert (normalizes format) → resize → install read-only
+      qemu-img convert -f qcow2 -O qcow2 $src temp.qcow2
+      qemu-img resize temp.qcow2 ${vmConfig.diskSize}
       mkdir -p $out
-      cp $src $out/base.qcow2
-      chmod +w $out/base.qcow2
-      qemu-img resize $out/base.qcow2 ${vmConfig.diskSize}
+      install -m 0444 temp.qcow2 $out/base.qcow2
     '';
   };
 
@@ -200,18 +201,30 @@ in
 
       disk_path="${vmConfig.dataPath}/disk/${vmConfig.name}.qcow2"
       base_path="${baseImage}/base.qcow2"
+      lock_file="${vmConfig.dataPath}/disk/.${vmConfig.name}.lock"
 
-      # Query overlay's current backing file (empty if missing/invalid)
-      current_backing="$(${pkgs.qemu}/bin/qemu-img info --output=json "$disk_path" 2>/dev/null \
-        | ${pkgs.jq}/bin/jq -r '."backing-filename" // empty' 2>/dev/null || true)"
+      # Query overlay's current backing file
+      # -U: allow reading while VM may have image locked
+      # Prefer full-backing-filename (absolute) over backing-filename (may be relative)
+      current_backing="$(${pkgs.qemu}/bin/qemu-img info -U --output=json "$disk_path" 2>/dev/null \
+        | ${pkgs.jq}/bin/jq -r '."full-backing-filename" // ."backing-filename" // empty' 2>/dev/null || true)"
 
       # Recreate overlay if missing or backing file changed
       if [ ! -f "$disk_path" ] || [ "$current_backing" != "$base_path" ]; then
         echo "Creating overlay: $disk_path -> $base_path"
-        rm -f "$disk_path"
-        ${pkgs.qemu}/bin/qemu-img create -f qcow2 -b "$base_path" -F qcow2 "$disk_path"
-        chown root:root "$disk_path"
-        chmod 0640 "$disk_path"
+
+        # Lock + atomic creation to prevent races and partial writes
+        (
+          ${pkgs.flock}/bin/flock -x 200
+
+          temp_overlay="${vmConfig.dataPath}/disk/.${vmConfig.name}.qcow2.tmp"
+          rm -f "$temp_overlay"
+          ${pkgs.qemu}/bin/qemu-img create -f qcow2 -b "$base_path" -F qcow2 "$temp_overlay"
+          chown root:root "$temp_overlay"
+          chmod 0640 "$temp_overlay"
+          mv "$temp_overlay" "$disk_path"
+
+        ) 200>"$lock_file"
       fi
 
       # XML definition tracking
