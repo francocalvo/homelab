@@ -89,7 +89,7 @@ let
           - DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
           - DEBIAN_FRONTEND=noninteractive apt-get install -y nfs-common
           - mkdir -p /mnt/share
-          - grep -q '^192.168.1.251:/mnt/arrakis/ix/openclaw/share[[:space:]]\+/mnt/share[[:space:]]\+nfs' /etc/fstab || echo '192.168.1.251:/mnt/arrakis/ix/openclaw/share\t/mnt/share\tnfs\tdefaults,_netdev,nofail\t0\t0' >> /etc/fstab
+          - grep -q '^192.168.1.251:/mnt/arrakis/ix/openclaw/share[[:space:]]\+/mnt/share[[:space:]]\+nfs' /etc/fstab || printf '%s\n' '192.168.1.251:/mnt/arrakis/ix/openclaw/share /mnt/share nfs defaults,_netdev,nofail 0 0' >> /etc/fstab
           - mount -av || true
           - systemctl enable --now qemu-guest-agent || true
           - sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
