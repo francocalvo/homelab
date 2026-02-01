@@ -84,11 +84,13 @@ let
         bootcmd:
           - mkdir -p /mnt/share
         packages: [qemu-guest-agent, ca-certificates, curl, gnupg, nfs-common, build-essential, git]
-        mounts:
-          - [ "192.168.1.251:/mnt/arrakis/ix/openclaw/share", "/mnt/share", "nfs", "defaults,_netdev,nofail", "0", "0" ]
         runcmd:
           - DEBIAN_FRONTEND=noninteractive apt-get update
           - DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+          - DEBIAN_FRONTEND=noninteractive apt-get install -y nfs-common
+          - mkdir -p /mnt/share
+          - grep -q '^192.168.1.251:/mnt/arrakis/ix/openclaw/share[[:space:]]\+/mnt/share[[:space:]]\+nfs' /etc/fstab || echo '192.168.1.251:/mnt/arrakis/ix/openclaw/share\t/mnt/share\tnfs\tdefaults,_netdev,nofail\t0\t0' >> /etc/fstab
+          - mount -av || true
           - systemctl enable --now qemu-guest-agent || true
           - sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
           - systemctl restart ssh
@@ -195,10 +197,13 @@ in
     requires = [ "libvirtd.service" ];
     wantedBy = [ "multi-user.target" ];
 
+    unitConfig = {
+      RequiresMountsFor = [ vmConfig.dataPath ];
+    };
+
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
-      RequiresMountsFor = [ vmConfig.dataPath ];
     };
 
     restartTriggers = [
@@ -245,7 +250,7 @@ in
       if [ -f "$xml_hash_file" ]; then
         old_hash=$(${pkgs.coreutils}/bin/cat "$xml_hash_file")
       fi
-      if [ "$new_hash" != "$old_hash" ]; then
+      if ! ${pkgs.libvirt}/bin/virsh dominfo ${vmConfig.name} >/dev/null 2>&1 || [ "$new_hash" != "$old_hash" ]; then
         ${pkgs.libvirt}/bin/virsh define ${vmXmlFile}
         echo "$new_hash" > "$xml_hash_file"
       fi
