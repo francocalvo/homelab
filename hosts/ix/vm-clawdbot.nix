@@ -91,6 +91,10 @@ let
           - mkdir -p /mnt/share
           - grep -q '^192.168.1.251:/mnt/arrakis/ix/openclaw/share[[:space:]]\+/mnt/share[[:space:]]\+nfs' /etc/fstab || printf '%s\n' '192.168.1.251:/mnt/arrakis/ix/openclaw/share /mnt/share nfs defaults,_netdev,nofail 0 0' >> /etc/fstab
           - mount -av || true
+          # Wait for NFS mount to be ready, then fix ownership for muad
+          - while ! mountpoint -q /mnt/share 2>/dev/null; do sleep 1; done
+          - mkdir -p /mnt/share/openclaw
+          - chown -R muad:muad /mnt/share/openclaw
           - systemctl enable --now qemu-guest-agent || true
           - sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
           - systemctl restart ssh
