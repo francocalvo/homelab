@@ -41,7 +41,7 @@ let
     src = pkgs.fetchurl {
       url = "https://cloud-images.ubuntu.com/noble/20260108/noble-server-cloudimg-amd64.img";
       # Run: nix-prefetch-url https://cloud-images.ubuntu.com/noble/20260108/noble-server-cloudimg-amd64.img
-      sha256 = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
+      sha256 = "sha256-AHhsCTan3ZGmsHlBymC7VmUpdeDnL52s9zyIetpCCWY=";
     };
 
     nativeBuildInputs = [ pkgs.qemu ];
