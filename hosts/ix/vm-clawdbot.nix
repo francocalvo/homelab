@@ -231,7 +231,7 @@ in
 
           tmp="$(${pkgs.coreutils}/bin/mktemp -p "$(dirname "$disk_path")" ".${vmConfig.name}.qcow2.XXXXXX")"
           ${pkgs.qemu}/bin/qemu-img create -f qcow2 -b "$base_path" -F qcow2 "$tmp"
-          chown libvirt-qemu:libvirt-qemu "$tmp"
+          chown root:root "$tmp"
           chmod 0640 "$tmp"
           mv -f "$tmp" "$disk_path"
         fi
