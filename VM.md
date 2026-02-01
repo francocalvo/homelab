@@ -96,8 +96,16 @@ If you're migrating from the previous manual disk setup:
 - **OpenClaw config persistence**: The VM's `~/.openclaw` directory is symlinked to `/mnt/share/openclaw` (NFS)
 - This ensures OpenClaw configuration survives VM re-provisioning (qcow2 replacement)
 - The symlink is created automatically during cloud-init's `runcmd` phase
+- **Ownership**: `/mnt/share/openclaw` is automatically owned by `muad:muad` via cloud-init (after NFS mount)
 - **To reset OpenClaw config**: Delete the contents of `/mnt/share/openclaw` on the host (after stopping the VM)
 - **To verify the symlink**: Inside the VM as user `muad`, run `ls -la ~/.openclaw` - it should point to `/mnt/share/openclaw`
+- **To verify ownership**: `ls -ld /mnt/share/openclaw` should show `muad:muad`
+
+## Known Issues: OpenClaw Permission Errors
+If OpenClaw agent (running as `muad`) gets `EACCES` errors trying to write to `~/.openclaw`:
+- Check that `/mnt/share/openclaw` is owned by `muad:muad`: `ls -ld /mnt/share/openclaw`
+- Fix it manually: `sudo chown -R muad:muad /mnt/share/openclaw`
+- Cloud-init should fix this automatically on next VM reprovision (waits for NFS mount before chown)
 
 ## Recent actions
 - Old VM definition removed: `virsh shutdown/destroy/undefine openclaw`
