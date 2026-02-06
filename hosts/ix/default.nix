@@ -15,6 +15,7 @@
     ./container-jellyfin.nix
     ./container-nextcloud.nix
     ./container-wallabag.nix
+    ./container-immich.nix
   ];
 
   sops = {
@@ -29,6 +30,10 @@
 
       wallabag_env = {
         path = "/mnt/arrakis/wallabag/.env";
+      };
+
+      immich_env = {
+        path = "/mnt/arrakis/immich/.env";
       };
     };
   };
