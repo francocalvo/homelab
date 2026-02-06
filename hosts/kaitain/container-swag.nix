@@ -14,6 +14,7 @@ let
     "cloud"       # nextcloud
     "bag"         # wallabag
     "overleaf"    # overleaf
+    "photos"       # immich
   ];
   subdomains = lib.concatStringsSep ", " services;
   ixHost = "192.168.0.4";
@@ -81,13 +82,17 @@ in
     serviceConfig = {
       Restart = lib.mkOverride 90 "always";
     };
-    after = [ "podman-network-kaitain_default.service" ];
-    requires = [ "podman-network-kaitain_default.service" ];
+    after = [
+      "podman-network-kaitain_default.service"
+    ];
+    requires = [
+      "podman-network-kaitain_default.service"
+    ];
     partOf = [ "podman-compose-kaitain-root.target" ];
     wantedBy = [ "podman-compose-kaitain-root.target" ];
   };
 
-  # Ensure swag directory exists
+  # Ensure directories exist
   systemd.tmpfiles.rules = [
     "d /mnt/arrakis/swag 0755 1000 1000 -"
   ];

@@ -48,6 +48,7 @@
     ./container-git-bridge.nix
     ./container-overleaf.nix
     ./container-wallabag.nix
+    ./container-immich.nix
 
     # VMs
     ./vm-clawdbot.nix
@@ -65,6 +66,10 @@
 
       wallabag_env = {
         path = "/mnt/arrakis/wallabag/.env";
+      };
+
+      immich_env = {
+        path = "/mnt/arrakis/immich/.env";
       };
     };
   };
