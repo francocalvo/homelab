@@ -13,10 +13,38 @@ let
     "iperf"       # speedtest-tracker
     "cloud"       # nextcloud
     "bag"         # wallabag
+    "overleaf"    # overleaf
   ];
   subdomains = lib.concatStringsSep ", " services;
+  ixHost = "192.168.1.4";
+  overleafPort = "8084";
 in
 {
+  environment.etc."swag/proxy-confs/subdomains/overleaf.subdomain.conf".text = ''
+    server {
+        listen 443 ssl;
+        listen [::]:443 ssl;
+
+        server_name overleaf.*;
+
+        include /config/nginx/ssl.conf;
+
+        client_max_body_size 0;
+
+        location / {
+            include /config/nginx/proxy.conf;
+            include /config/nginx/resolver.conf;
+            set $upstream_app ${ixHost};
+            set $upstream_port ${overleafPort};
+            set $upstream_proto http;
+            proxy_pass $upstream_proto://$upstream_app:$upstream_port;
+
+            proxy_read_timeout 3600;
+            proxy_send_timeout 3600;
+            proxy_buffering off;
+        }
+    }
+  '';
 
   # Containers
   virtualisation.oci-containers.containers."swag" = {
@@ -34,7 +62,10 @@ in
       "URL" = "calvo.dev";
       "VALIDATION" = "dns";
     };
-    volumes = [ "/mnt/arrakis/swag:/config:rw" ];
+    volumes = [
+      "/mnt/arrakis/swag:/config:rw"
+      "/etc/swag/proxy-confs/subdomains/overleaf.subdomain.conf:/config/nginx/proxy-confs/subdomains/overleaf.subdomain.conf:ro"
+    ];
     ports = [
       "443:443/tcp"
       "80:80/tcp"

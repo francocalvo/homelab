@@ -14,6 +14,7 @@
     # Containers
     ./container-jellyfin.nix
     ./container-nextcloud.nix
+    ./container-overleaf.nix
     ./container-wallabag.nix
 
     # VMs
