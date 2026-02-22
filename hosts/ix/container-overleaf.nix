@@ -14,8 +14,10 @@ in
     image = "sharelatex/sharelatex:${overleaf_version}";
     environment = {
       "OVERLEAF_APP_NAME" = "Overleaf";
+      "OVERLEAF_BEHIND_PROXY" = "true";
       "OVERLEAF_LISTEN_IP" = "0.0.0.0";
       "OVERLEAF_PORT" = "80";
+      "OVERLEAF_TRUSTED_PROXY_IPS" = "192.168.1.100,127.0.0.1,::1";
       "OVERLEAF_SITE_URL" = "https://overleaf.calvo.dev";
       "OVERLEAF_MONGO_URL" = "mongodb://mongo/sharelatex";
       "OVERLEAF_REDIS_HOST" = "redis";
