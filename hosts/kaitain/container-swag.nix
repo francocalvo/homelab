@@ -29,10 +29,10 @@ in
       "PGID" = "1000";
       "PUID" = "1000";
       "STAGING" = "false";
-      "SUBDOMAINS" = subdomains;
+      "SUBDOMAINS" = "wildcard";
       "TZ" = "America/Argentina/Cordoba";
       "URL" = "calvo.dev";
-      "VALIDATION" = "http";
+      "VALIDATION" = "dns";
     };
     volumes = [ "/mnt/arrakis/swag:/config:rw" ];
     ports = [
