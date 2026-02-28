@@ -81,6 +81,7 @@ in
     image = "olgitbridge:local";
     environment = {
       "OVERLEAF_HOST" = "https://overleaf.calvo.dev";
+      "NODE_EXTRA_CA_CERTS" = "/etc/ssl/certs/ca-bundle.crt";
     };
     volumes = [
       "/mnt/arrakis/overleaf/git-bridge/config.js:/app/config.js:ro"

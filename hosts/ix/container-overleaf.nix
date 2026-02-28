@@ -97,7 +97,10 @@ in
       "OVERLEAF_REDIS_HOST" = "redis";
       "OVERLEAF_SECURE_COOKIE" = "true";
     };
-    volumes = [ "/mnt/arrakis/overleaf/data:/var/lib/overleaf:rw" ];
+    volumes = [
+      "/mnt/arrakis/overleaf/data:/var/lib/overleaf:rw"
+      "/mnt/arrakis/overleaf/texlive:/usr/local/texlive:rw"
+    ];
     ports = [ "8084:80/tcp" ];
     dependsOn = [
       "ix-overleaf-mongo"
@@ -224,6 +227,7 @@ in
     "d /mnt/arrakis/overleaf/data 0755 1000 1000 -"
     "d /mnt/arrakis/overleaf/mongo 0755 1000 1000 -"
     "d /mnt/arrakis/overleaf/mongo_config 0755 1000 1000 -"
-    "d /mnt/arrakis/overleaf/redis 0755 1000 1000 -"
+    "d /mnt/arrakis/overleaf/redis 0777 1000 1000 -"
+    "d /mnt/arrakis/overleaf/texlive 0755 root root -"
   ];
 }
