@@ -79,6 +79,9 @@ in
   # Git Bridge container
   virtualisation.oci-containers.containers."ix-git-bridge" = {
     image = "olgitbridge:local";
+    environment = {
+      "OVERLEAF_HOST" = "https://overleaf.calvo.dev";
+    };
     volumes = [
       "/mnt/arrakis/overleaf/git-bridge/config.js:/app/config.js:ro"
       "/mnt/arrakis/overleaf/git-bridge/data:/data:rw"
