@@ -5,6 +5,80 @@
   ...
 }:
 
+/*
+  Overleaf Deployment Runbook (manual ops reference)
+
+  This module defines the Overleaf CE stack on `ix`:
+  - `ix-overleaf` (sharelatex/sharelatex)
+  - `ix-overleaf-mongo` (replica set: rs0)
+  - `ix-overleaf-redis`
+
+  1) Deploy this branch on ix
+     - `cd ~/homelab`
+     - `git switch feat/overleaf`
+     - `git pull --ff-only`
+     - `sudo nixos-rebuild switch --flake .#ix`
+
+  2) Ensure reverse proxy route exists on kaitain (SWAG)
+     File on kaitain:
+     - `/mnt/arrakis/swag/nginx/proxy-confs/subdomains/overleaf.subdomain.conf`
+     Expected upstream:
+     - `192.168.1.4:8084`
+     Then reload SWAG:
+     - `sudo podman exec swag nginx -t`
+     - `sudo podman restart swag`
+
+  3) First login / launchpad
+     - Open: `https://overleaf.calvo.dev/launchpad`
+     If you get "Session error. Please check you have cookies enabled":
+     - Make sure this container has:
+       - `OVERLEAF_SECURE_COOKIE=true`
+       - `OVERLEAF_BEHIND_PROXY=true`
+       - `OVERLEAF_TRUSTED_PROXY_IPS=192.168.1.100,127.0.0.1,::1`
+     - Clear site cookies and retry launchpad.
+
+  4) TeX install strategy (inside container)
+     Preferred (recommended): full TeX Live once, then rebuild all formats.
+     - `sudo podman exec ix-overleaf sh -lc "tlmgr update --self"`
+     - `sudo podman exec ix-overleaf sh -lc "tlmgr install scheme-full"`
+     - `sudo podman exec ix-overleaf sh -lc "tlmgr path add"`
+     - `sudo podman exec ix-overleaf sh -lc "fmtutil-sys --all"`
+     Notes:
+     - `scheme-full` is large and can take a long time.
+     - This removes repeated "File `<pkg>.sty` not found" errors.
+
+  5) If not using `scheme-full` (targeted installs)
+     - `sudo podman exec ix-overleaf sh -lc "tlmgr install koma-script float subfiles babel-spanish pdfpages adjustbox wrapfig libertine apacite fontspec booktabs multirow enumitem pdflscape polyglossia biblatex"`
+     Notes:
+     - `bigstrut.sty` is provided by package `multirow`.
+     - `fontspec` is needed when compiling with LuaLaTeX/XeLaTeX.
+
+  6) Fix for LaTeX kernel/package mismatches
+     Symptoms observed:
+     - `\IfPDFManagementActiveF` undefined (from `pdflscape`)
+     - `\tbl_save_outer_table_cols:` undefined (from `tabularx/array`)
+     Cause:
+     - Some packages updated while LaTeX kernel/tools formats stayed old.
+     Fix (sync core + tools and rebuild formats):
+     - `sudo podman exec ix-overleaf sh -lc "tlmgr update latex l3kernel latex-bin tools latex-lab firstaid babel graphics l3backend"`
+     Verify format status (LuaLaTeX):
+     - `sudo podman exec ix-overleaf sh -lc "lualatex --version | head -n 2"`
+
+  7) If errors persist after installs/updates
+     - Check project tree for uploaded local package files that override system TeX:
+       `array.sty`, `tabularx.sty`, `pdflscape.sty`, `lscape.sty`, etc.
+     - Remove local stale copies and compile again.
+
+  8) Verify container health quickly
+     - `sudo podman ps | grep ix-overleaf`
+     - `sudo podman inspect ix-overleaf --format '{{json .Config.Env}}' | tr ',' '\n' | grep OVERLEAF_`
+     - `sudo podman exec ix-overleaf sh -lc "tlmgr info --only-installed scheme-full | sed -n '1,20p'"`
+     - `sudo podman exec ix-overleaf sh -lc "kpsewhich scrbook.cls biblatex.sty polyglossia.sty pdflscape.sty"`
+
+  Important:
+  - Any `tlmgr install/update` done this way is inside the running container.
+  - These changes may be lost on container recreation unless baked into image/startup automation.
+*/
 let
   overleaf_version = "5.5.1";
 in
