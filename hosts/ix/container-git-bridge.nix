@@ -27,28 +27,27 @@ let
     '';
   };
 
-  gitBridgeImage = pkgs.dockerTools.buildImage {
+  entrypoint = pkgs.writeShellScript "entrypoint.sh" ''
+    export PATH="${pkgs.coreutils}/bin:${pkgs.git}/bin:${pkgs.nodejs_20}/bin:$PATH"
+    mkdir -p /root /var/olgitbridge /data /tmp
+    git config --global user.email "gitbridge@overleaf"
+    git config --global user.name "Git Bridge"
+    exec node /app/src/server.js
+  '';
+
+  gitBridgeImage = pkgs.dockerTools.buildLayeredImage {
     name = "olgitbridge";
     tag = "local";
-    copyToRoot = pkgs.buildEnv {
-      name = "olgitbridge-env";
-      paths = [
-        gitBridgeApp
-        pkgs.nodejs_20
-        pkgs.git
-        pkgs.cacert
-        pkgs.bash
-        pkgs.coreutils
-      ];
-    };
-    runAsRoot = ''
-      #!${pkgs.runtimeShell}
-      mkdir -p /root /var/olgitbridge /data
-      ${pkgs.git}/bin/git config --global user.email "gitbridge@overleaf"
-      ${pkgs.git}/bin/git config --global user.name "Git Bridge"
-    '';
+    contents = [
+      gitBridgeApp
+      pkgs.nodejs_20
+      pkgs.git
+      pkgs.cacert
+      pkgs.bash
+      pkgs.coreutils
+    ];
     config = {
-      Cmd = [ "${pkgs.nodejs_20}/bin/node" "/app/src/server.js" ];
+      Entrypoint = [ "${entrypoint}" ];
       WorkingDir = "/app";
       ExposedPorts = {
         "5000/tcp" = {};
