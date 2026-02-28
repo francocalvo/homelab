@@ -45,6 +45,10 @@ let
       pkgs.cacert
       pkgs.bash
       pkgs.coreutils
+      (pkgs.runCommand "git-usr-bin-symlink" {} ''
+        mkdir -p $out/usr/bin
+        ln -s ${pkgs.git}/bin/git $out/usr/bin/git
+      '')
     ];
     config = {
       Entrypoint = [ "${entrypoint}" ];
