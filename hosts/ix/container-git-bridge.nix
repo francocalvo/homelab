@@ -9,8 +9,8 @@ let
   gitBridgeSrc = pkgs.fetchFromGitHub {
     owner = "valemir";
     repo = "overleaf-git-bridge-community";
-    rev = "4e9fadf9ac67e80f30cae9b9d59fc87202d31f3b";
-    hash = lib.fakeHash;
+    rev = "7341ef900988e88d89bec9d332430f3f56d819a5";
+    hash = "sha256-dnfVJpG/9sqPpeOTqZnKbuh6h3BWRLEl1bflgHKHVfI=";
   };
 
   gitBridgeApp = pkgs.buildNpmPackage {
