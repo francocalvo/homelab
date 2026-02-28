@@ -34,7 +34,7 @@ let
       name = "olgitbridge-env";
       paths = [
         gitBridgeApp
-        pkgs.nodejs_18
+        pkgs.nodejs_20
         pkgs.git
         pkgs.cacert
         pkgs.bash
@@ -48,7 +48,7 @@ let
       ${pkgs.git}/bin/git config --global user.name "Git Bridge"
     '';
     config = {
-      Cmd = [ "${pkgs.nodejs_18}/bin/node" "/app/src/server.js" ];
+      Cmd = [ "${pkgs.nodejs_20}/bin/node" "/app/src/server.js" ];
       WorkingDir = "/app";
       ExposedPorts = {
         "5000/tcp" = {};
