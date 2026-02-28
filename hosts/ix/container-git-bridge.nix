@@ -17,7 +17,7 @@ let
     pname = "overleaf-git-bridge-community";
     version = "0-unstable";
     src = gitBridgeSrc;
-    npmDepsHash = lib.fakeHash;
+    npmDepsHash = "sha256-L3UihWO/m5TXxYsivQd7jxm0Jllfad0KseJAVf/9SrM=";
     dontNpmBuild = true;
     installPhase = ''
       runHook preInstall
