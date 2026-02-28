@@ -84,7 +84,7 @@ in
   virtualisation.oci-containers.containers."ix-git-bridge" = {
     image = "olgitbridge:local";
     environment = {
-      "OVERLEAF_HOST" = "https://overleaf.calvo.dev";
+      "OVERLEAF_HOST" = "http://sharelatex";
       "NODE_EXTRA_CA_CERTS" = "/etc/ssl/certs/ca-bundle.crt";
     };
     volumes = [

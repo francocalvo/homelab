@@ -95,7 +95,9 @@ in
       "OVERLEAF_SITE_URL" = "https://overleaf.calvo.dev";
       "OVERLEAF_MONGO_URL" = "mongodb://mongo/sharelatex";
       "OVERLEAF_REDIS_HOST" = "redis";
-      "OVERLEAF_SECURE_COOKIE" = "true";
+      # NOTE: OVERLEAF_SECURE_COOKIE is intentionally not set.
+      # The git-bridge connects internally via http://sharelatex and needs
+      # cookies without the Secure flag. SWAG still provides HTTPS to browsers.
     };
     volumes = [
       "/mnt/arrakis/overleaf/data:/var/lib/overleaf:rw"
