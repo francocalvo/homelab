@@ -5,87 +5,63 @@
   ...
 }:
 
-/*
-  Overleaf Deployment Runbook (manual ops reference)
-
-  This module defines the Overleaf CE stack on `ix`:
-  - `ix-overleaf` (sharelatex/sharelatex)
-  - `ix-overleaf-mongo` (replica set: rs0)
-  - `ix-overleaf-redis`
-
-  1) Deploy this branch on ix
-     - `cd ~/homelab`
-     - `git switch feat/overleaf`
-     - `git pull --ff-only`
-     - `sudo nixos-rebuild switch --flake .#ix`
-
-  2) Ensure reverse proxy route exists on kaitain (SWAG)
-     File on kaitain:
-     - `/mnt/arrakis/swag/nginx/proxy-confs/subdomains/overleaf.subdomain.conf`
-     Expected upstream:
-     - `192.168.1.4:8084`
-     Then reload SWAG:
-     - `sudo podman exec swag nginx -t`
-     - `sudo podman restart swag`
-
-  3) First login / launchpad
-     - Open: `https://overleaf.calvo.dev/launchpad`
-     If you get "Session error. Please check you have cookies enabled":
-     - Make sure this container has:
-       - `OVERLEAF_SECURE_COOKIE=true`
-       - `OVERLEAF_BEHIND_PROXY=true`
-       - `OVERLEAF_TRUSTED_PROXY_IPS=192.168.1.100,127.0.0.1,::1`
-     - Clear site cookies and retry launchpad.
-
-  4) TeX install strategy (inside container)
-     Preferred (recommended): full TeX Live once, then rebuild all formats.
-     - `sudo podman exec ix-overleaf sh -lc "tlmgr update --self"`
-     - `sudo podman exec ix-overleaf sh -lc "tlmgr install scheme-full"`
-     - `sudo podman exec ix-overleaf sh -lc "tlmgr path add"`
-     - `sudo podman exec ix-overleaf sh -lc "fmtutil-sys --all"`
-     Notes:
-     - `scheme-full` is large and can take a long time.
-     - This removes repeated "File `<pkg>.sty` not found" errors.
-
-  5) If not using `scheme-full` (targeted installs)
-     - `sudo podman exec ix-overleaf sh -lc "tlmgr install koma-script float subfiles babel-spanish pdfpages adjustbox wrapfig libertine apacite fontspec booktabs multirow enumitem pdflscape polyglossia biblatex"`
-     Notes:
-     - `bigstrut.sty` is provided by package `multirow`.
-     - `fontspec` is needed when compiling with LuaLaTeX/XeLaTeX.
-
-  6) Fix for LaTeX kernel/package mismatches
-     Symptoms observed:
-     - `\IfPDFManagementActiveF` undefined (from `pdflscape`)
-     - `\tbl_save_outer_table_cols:` undefined (from `tabularx/array`)
-     Cause:
-     - Some packages updated while LaTeX kernel/tools formats stayed old.
-     Fix (sync core + tools and rebuild formats):
-     - `sudo podman exec ix-overleaf sh -lc "tlmgr update latex l3kernel latex-bin tools latex-lab firstaid babel graphics l3backend"`
-     Verify format status (LuaLaTeX):
-     - `sudo podman exec ix-overleaf sh -lc "lualatex --version | head -n 2"`
-
-  7) If errors persist after installs/updates
-     - Check project tree for uploaded local package files that override system TeX:
-       `array.sty`, `tabularx.sty`, `pdflscape.sty`, `lscape.sty`, etc.
-     - Remove local stale copies and compile again.
-
-  8) Verify container health quickly
-     - `sudo podman ps | grep ix-overleaf`
-     - `sudo podman inspect ix-overleaf --format '{{json .Config.Env}}' | tr ',' '\n' | grep OVERLEAF_`
-     - `sudo podman exec ix-overleaf sh -lc "tlmgr info --only-installed scheme-full | sed -n '1,20p'"`
-     - `sudo podman exec ix-overleaf sh -lc "kpsewhich scrbook.cls biblatex.sty polyglossia.sty pdflscape.sty"`
-
-  Important:
-  - Any `tlmgr install/update` done this way is inside the running container.
-  - These changes may be lost on container recreation unless baked into image/startup automation.
-*/
 let
   overleaf_version = "5.5.1";
+
+  # Pull the upstream sharelatex image as a fixed-output derivation.
+  sharelatexBase = pkgs.dockerTools.pullImage {
+    imageName = "docker.io/sharelatex/sharelatex";
+    imageDigest = "sha256:166413eb9312a60dc4088dc7e65a8d8125bd2b7a0a329885855e664946eed658";
+    sha256 = "sha256-Pztyuf3dmhvaBvzypK81fPlZBBb7QMA4Ige2mPKOSpE=";
+    finalImageTag = overleaf_version;
+  };
+
+  # Nix TeX Live scheme-full — all packages, deterministic, cached by nixpkgs.
+  texlive = pkgs.texlive.combined.scheme-full;
+
+  # Build a custom image layering Nix TeX Live onto sharelatex.
+  # The Nix texlive binaries live in /nix/store and are self-contained;
+  # we add symlinks under /usr/local/bin/ so they appear in the container PATH.
+  texliveLinks = pkgs.runCommand "texlive-links" { } ''
+    mkdir -p $out/usr/local/bin
+    for bin in ${texlive}/bin/*; do
+      ln -s "$bin" "$out/usr/local/bin/$(basename "$bin")"
+    done
+  '';
+
+  overleafImage = pkgs.dockerTools.buildLayeredImage {
+    name = "sharelatex-full";
+    tag = overleaf_version;
+    fromImage = sharelatexBase;
+    contents = [ texlive texliveLinks ];
+    # Preserve the base image's entrypoint (buildLayeredImage clears it).
+    config.Entrypoint = [ "/sbin/my_init" ];
+  };
 in
 {
+  # Load the custom image into podman before starting the container.
+  systemd.services.podman-load-overleaf = {
+    description = "Load sharelatex-full image into podman";
+    after = [ "podman.service" ];
+    requires = [ "podman.service" ];
+    before = [ "podman-ix-overleaf.service" ];
+    wantedBy = [ "podman-compose-ix-root.target" ];
+
+    path = [ pkgs.podman ];
+
+    script = ''
+      podman load --input ${overleafImage}
+    '';
+
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+    };
+  };
+
   # Overleaf Web Application
   virtualisation.oci-containers.containers."ix-overleaf" = {
-    image = "sharelatex/sharelatex:${overleaf_version}";
+    image = "sharelatex-full:${overleaf_version}";
     environment = {
       "OVERLEAF_APP_NAME" = "Overleaf";
       "OVERLEAF_BEHIND_PROXY" = "true";
@@ -101,7 +77,6 @@ in
     };
     volumes = [
       "/mnt/arrakis/overleaf/data:/var/lib/overleaf:rw"
-      "/mnt/arrakis/overleaf/texlive:/usr/local/texlive:rw"
     ];
     ports = [ "8084:80/tcp" ];
     dependsOn = [
@@ -121,10 +96,12 @@ in
     after = [
       "podman-network-ix_default.service"
       "overleaf-mongo-init-rs.service"
+      "podman-load-overleaf.service"
     ];
     requires = [
       "podman-network-ix_default.service"
       "overleaf-mongo-init-rs.service"
+      "podman-load-overleaf.service"
     ];
     partOf = [ "podman-compose-ix-root.target" ];
     wantedBy = [ "podman-compose-ix-root.target" ];
@@ -230,6 +207,5 @@ in
     "d /mnt/arrakis/overleaf/mongo 0755 1000 1000 -"
     "d /mnt/arrakis/overleaf/mongo_config 0755 1000 1000 -"
     "d /mnt/arrakis/overleaf/redis 0777 1000 1000 -"
-    "d /mnt/arrakis/overleaf/texlive 0755 root root -"
   ];
 }
