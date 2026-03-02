@@ -27,12 +27,20 @@ let
     '';
   };
 
+  # The bundled socket.io-client 0.9.x expects a global `io` object that
+  # existed in older Node versions. Node 20+ removed implicit `global`.
+  nodePolyfill = pkgs.writeText "node-global-polyfill.js" ''
+    if (typeof globalThis.global === 'undefined') {
+      globalThis.global = globalThis;
+    }
+  '';
+
   entrypoint = pkgs.writeShellScript "entrypoint.sh" ''
     export PATH="${pkgs.coreutils}/bin:${pkgs.git}/bin:${pkgs.nodejs_20}/bin:$PATH"
     mkdir -p /root /var/olgitbridge /data /tmp
     git config --global user.email "gitbridge@overleaf"
     git config --global user.name "Git Bridge"
-    exec node /app/src/server.js
+    exec node --require ${nodePolyfill} /app/src/server.js
   '';
 
   gitBridgeImage = pkgs.dockerTools.buildLayeredImage {
