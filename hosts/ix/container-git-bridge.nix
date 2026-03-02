@@ -33,6 +33,11 @@ let
 
       sed -i 's|this.websocket = new Socket(this.prepareUrl() + query);|this.websocket = new Socket(this.prepareUrl() + query, { headers: { Cookie: this.socket.options.cookie \|\| "" } });|' \
         lib/socket.io-client/lib/transports/websocket.js
+
+      # Overleaf 5.x requires projectId as a query parameter on the socket.io
+      # handshake, not just as an argument to the joinProject emit.
+      sed -i "s|transports: \[ 'websocket' \],|transports: [ 'websocket' ], query: 'projectId=' + project_id,|" \
+        src/olops/joinProject.js
     '';
 
     installPhase = ''
