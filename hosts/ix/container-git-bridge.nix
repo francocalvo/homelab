@@ -19,6 +19,16 @@ let
     src = gitBridgeSrc;
     npmDepsHash = "sha256-L3UihWO/m5TXxYsivQd7jxm0Jllfad0KseJAVf/9SrM=";
     dontNpmBuild = true;
+
+    # The bundled xmlhttprequest treats "cookie" as a forbidden request header
+    # (per the browser spec) and silently drops it. The socket.io-client 0.9.x
+    # handshake needs to send the Overleaf session cookie, so we remove "cookie"
+    # and "cookie2" from the forbidden list.
+    postPatch = ''
+      sed -i '/"cookie",/d; /"cookie2",/d' \
+        lib/xmlhttprequest/lib/XMLHttpRequest.js
+    '';
+
     installPhase = ''
       runHook preInstall
       mkdir -p $out/app
