@@ -20,13 +20,19 @@ let
     npmDepsHash = "sha256-L3UihWO/m5TXxYsivQd7jxm0Jllfad0KseJAVf/9SrM=";
     dontNpmBuild = true;
 
-    # The bundled xmlhttprequest treats "cookie" as a forbidden request header
-    # (per the browser spec) and silently drops it. The socket.io-client 0.9.x
-    # handshake needs to send the Overleaf session cookie, so we remove "cookie"
-    # and "cookie2" from the forbidden list.
+    # Patches for Node 20 + Overleaf socket.io compatibility:
+    # 1. The bundled xmlhttprequest treats "cookie" as a forbidden request header
+    #    (per the browser spec) and silently drops it. The socket.io-client 0.9.x
+    #    handshake needs to send the Overleaf session cookie.
+    # 2. The websocket transport doesn't pass cookies in the WebSocket upgrade
+    #    request. Overleaf's real-time service reads the session from the WS
+    #    request cookies, so we inject them via ws headers option.
     postPatch = ''
       sed -i '/"cookie",/d; /"cookie2",/d' \
         lib/xmlhttprequest/lib/XMLHttpRequest.js
+
+      sed -i 's|this.websocket = new Socket(this.prepareUrl() + query);|this.websocket = new Socket(this.prepareUrl() + query, { headers: { Cookie: this.socket.options.cookie \|\| "" } });|' \
+        lib/socket.io-client/lib/transports/websocket.js
     '';
 
     installPhase = ''
