@@ -8,60 +8,23 @@
 let
   overleaf_version = "5.5.1";
 
-  # Pull the upstream sharelatex image as a fixed-output derivation.
-  sharelatexBase = pkgs.dockerTools.pullImage {
-    imageName = "docker.io/sharelatex/sharelatex";
-    imageDigest = "sha256:166413eb9312a60dc4088dc7e65a8d8125bd2b7a0a329885855e664946eed658";
-    sha256 = "sha256-Pztyuf3dmhvaBvzypK81fPlZBBb7QMA4Ige2mPKOSpE=";
-    finalImageTag = overleaf_version;
-  };
-
   # Nix TeX Live scheme-full — all packages, deterministic, cached by nixpkgs.
   texlive = pkgs.texlive.combined.scheme-full;
 
-  # Build a custom image layering Nix TeX Live onto sharelatex.
-  # The Nix texlive binaries live in /nix/store and are self-contained;
-  # we add symlinks under /usr/local/bin/ so they appear in the container PATH.
+  # Symlinks from /opt/texlive/bin/<binary> -> /nix/store/.../bin/<binary>
+  # so the texlive tools appear in the container's PATH without modifying
+  # the base sharelatex image.
   texliveLinks = pkgs.runCommand "texlive-links" { } ''
-    mkdir -p $out/usr/local/bin
+    mkdir -p $out/opt/texlive/bin
     for bin in ${texlive}/bin/*; do
-      ln -s "$bin" "$out/usr/local/bin/$(basename "$bin")"
+      ln -s "$bin" "$out/opt/texlive/bin/$(basename "$bin")"
     done
   '';
-
-  overleafImage = pkgs.dockerTools.buildLayeredImage {
-    name = "sharelatex-full";
-    tag = overleaf_version;
-    fromImage = sharelatexBase;
-    contents = [ texlive texliveLinks ];
-    # Preserve the base image's entrypoint (buildLayeredImage clears it).
-    config.Entrypoint = [ "/sbin/my_init" ];
-  };
 in
 {
-  # Load the custom image into podman before starting the container.
-  systemd.services.podman-load-overleaf = {
-    description = "Load sharelatex-full image into podman";
-    after = [ "podman.service" ];
-    requires = [ "podman.service" ];
-    before = [ "podman-ix-overleaf.service" ];
-    wantedBy = [ "podman-compose-ix-root.target" ];
-
-    path = [ pkgs.podman ];
-
-    script = ''
-      podman load --input ${overleafImage}
-    '';
-
-    serviceConfig = {
-      Type = "oneshot";
-      RemainAfterExit = true;
-    };
-  };
-
   # Overleaf Web Application
   virtualisation.oci-containers.containers."ix-overleaf" = {
-    image = "sharelatex-full:${overleaf_version}";
+    image = "sharelatex/sharelatex:${overleaf_version}";
     environment = {
       "OVERLEAF_APP_NAME" = "Overleaf";
       "OVERLEAF_BEHIND_PROXY" = "true";
@@ -71,12 +34,18 @@ in
       "OVERLEAF_SITE_URL" = "https://overleaf.calvo.dev";
       "OVERLEAF_MONGO_URL" = "mongodb://mongo/sharelatex";
       "OVERLEAF_REDIS_HOST" = "redis";
+      # Prepend Nix texlive to PATH so latexmk / pdflatex are found.
+      "PATH" = "/opt/texlive/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin";
       # NOTE: OVERLEAF_SECURE_COOKIE is intentionally not set.
       # The git-bridge connects internally via http://sharelatex and needs
       # cookies without the Secure flag. SWAG still provides HTTPS to browsers.
     };
     volumes = [
       "/mnt/arrakis/overleaf/data:/var/lib/overleaf:rw"
+      # Bind-mount the Nix store so texlive binaries can find their deps.
+      "/nix/store:/nix/store:ro"
+      # Symlinks that put texlive binaries on the container's PATH.
+      "${texliveLinks}/opt/texlive/bin:/opt/texlive/bin:ro"
     ];
     ports = [ "8084:80/tcp" ];
     dependsOn = [
@@ -96,12 +65,10 @@ in
     after = [
       "podman-network-ix_default.service"
       "overleaf-mongo-init-rs.service"
-      "podman-load-overleaf.service"
     ];
     requires = [
       "podman-network-ix_default.service"
       "overleaf-mongo-init-rs.service"
-      "podman-load-overleaf.service"
     ];
     partOf = [ "podman-compose-ix-root.target" ];
     wantedBy = [ "podman-compose-ix-root.target" ];
