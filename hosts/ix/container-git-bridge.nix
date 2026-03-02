@@ -35,9 +35,36 @@ let
         lib/socket.io-client/lib/transports/websocket.js
 
       # Overleaf 5.x requires projectId as a query parameter on the socket.io
-      # handshake, not just as an argument to the joinProject emit.
-      sed -i "s|transports: \[ 'websocket' \],|transports: [ 'websocket' ], query: 'projectId=' + project_id,|" \
-        src/olops/joinProject.js
+      # handshake, and responds with a joinProjectResponse event instead of a
+      # socket.io acknowledgement callback.
+      cat > src/olops/joinProject.js << 'PATCH'
+      const io = require( '../../lib/socket.io-client/lib/io' );
+      module.exports = async function( client, olServer, project_id ) {
+        console.log( client.count, 'io connect to', project_id );
+        const cookieJar = client.defaults.jar;
+        const cookie = cookieJar.getCookieStringSync( olServer );
+        const socket = io.connect( olServer, {
+          withCredentials: true,
+          cookie: cookie,
+          transports: [ 'websocket' ],
+          query: 'projectId=' + project_id,
+          'force new connection': true,
+        });
+        let project;
+        while( !project ) {
+          const promise = new Promise( ( resolve ) => {
+            socket.on( 'joinProjectResponse', ( data ) => resolve( data.project ) );
+            socket.emit( 'joinProject', { 'project_id': project_id } );
+            setTimeout( () => resolve( undefined ), 1000 );
+          });
+          project = await promise;
+          if( !project ) console.log( client.count, '*** timeout on socket.io, retrying' );
+        }
+        console.log( client.count, 'iosocket disconnect' );
+        socket.disconnect();
+        return project;
+      };
+      PATCH
     '';
 
     installPhase = ''
