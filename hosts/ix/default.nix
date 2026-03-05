@@ -14,6 +14,8 @@
     # Containers
     ./container-jellyfin.nix
     ./container-nextcloud.nix
+    ./container-git-bridge.nix
+    ./container-overleaf.nix
     ./container-wallabag.nix
 
     # VMs
@@ -59,6 +61,11 @@
   # Network configuration
   networking = {
     hostName = "ix";
+    firewall.allowedTCPPorts = [
+      5000  # overleaf git bridge
+      18437 # fifoteca backend
+      53172 # fifoteca frontend
+    ];
   };
 
   services = {
