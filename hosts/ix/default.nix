@@ -20,6 +20,7 @@
 
     # VMs
     ./vm-clawdbot.nix
+    ./vm-nanobot.nix
   ];
 
   sops = {
