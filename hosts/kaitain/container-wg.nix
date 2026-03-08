@@ -6,7 +6,7 @@
   virtualisation.oci-containers.containers."wg-easy" = {
     image = "ghcr.io/wg-easy/wg-easy:15";
     volumes = [
-      # "/lib/modules:/lib/modules:ro"
+      "/lib/modules:/lib/modules:ro"
       "/mnt/arrakis/wg:/etc/wireguard:rw"
     ];
     ports = [

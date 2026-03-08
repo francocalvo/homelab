@@ -61,7 +61,7 @@
       };
     };
 
-  boot.kernelModules = [ "ip6table_nat" ];
+  boot.kernelModules = [ "ip6table_nat" "iptable_nat" ];
 
   # NFS mount configuration
   fileSystems."/mnt/arrakis" = {
