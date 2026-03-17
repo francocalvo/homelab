@@ -4,6 +4,7 @@
   config,
   lib,
   pkgs,
+  inputs,
   ...
 }:
 
@@ -122,7 +123,12 @@
     gid = 1000;
   };
 
-  environment.systemPackages = with pkgs; [ neovim ];
+  environment.systemPackages = with pkgs; [
+    neovim
+    sops
+    tmux
+    inputs.claude-code.packages.${pkgs.system}.default
+  ];
   system.stateVersion = "25.05";
 
   boot.binfmt.emulatedSystems = [ "aarch64-linux" ];
