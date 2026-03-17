@@ -33,6 +33,9 @@
       speedtest_env = {
         path = "/mnt/arrakis/speedtest-tracker/.env";
       };
+      cloudflare_token = {
+        path = "/mnt/arrakis/swag/dns-conf/cloudflare.ini";
+      };
     };
   };
 
