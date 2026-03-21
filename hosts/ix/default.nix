@@ -75,7 +75,7 @@
 
   # NFS mount configuration
   fileSystems."/mnt/arrakis" = {
-    device = "192.168.1.251:/mnt/arrakis/ix";
+    device = "192.168.0.251:/mnt/arrakis/ix";
     fsType = "nfs";
     options = [
       "rw"
@@ -85,7 +85,7 @@
   };
 
   fileSystems."/mnt/media" = {
-    device = "192.168.1.251:/mnt/arrakis/media";
+    device = "192.168.0.251:/mnt/arrakis/media";
     fsType = "nfs";
     options = [
       "rw"
@@ -95,7 +95,7 @@
   };
 
   fileSystems."/mnt/nextcloud" = {
-    device = "192.168.1.251:/mnt/arrakis/nextcloud";
+    device = "192.168.0.251:/mnt/arrakis/nextcloud";
     fsType = "nfs";
     options = [
       "rw"

@@ -16,7 +16,7 @@ let
     "overleaf"    # overleaf
   ];
   subdomains = lib.concatStringsSep ", " services;
-  ixHost = "192.168.1.4";
+  ixHost = "192.168.0.4";
   overleafPort = "8084";
 in
 {

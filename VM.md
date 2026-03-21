@@ -149,7 +149,7 @@ If OpenClaw agent (running as `muad`) gets `EACCES` errors trying to write to `~
    - Users: `root`, `muad`, `calvo` with SSH keys
    - bootcmd: creates `/mnt/share` directory early
    - Packages: `qemu-guest-agent`, `ca-certificates`, `curl`, `gnupg`, `nfs-common`, `build-essential`, `git`
-   - Mount: NFS `192.168.1.251:/mnt/arrakis/ix/openclaw/share` -> `/mnt/share` (with nofail for robustness, auto-mounted)
+   - Mount: NFS `192.168.0.251:/mnt/arrakis/ix/openclaw/share` -> `/mnt/share` (with nofail for robustness, auto-mounted)
    - runcmd: non-interactive apt operations, enable agent, SSH hardening, Node.js 24, Nix installer, `openclaw` npm install
    - **Config persistence**: Creates `/mnt/share/openclaw` and symlinks `~/.openclaw` -> `/mnt/share/openclaw` for user `muad`
 - `openclaw` is installed globally for user `muad` in `~/.npm-global/bin/openclaw`

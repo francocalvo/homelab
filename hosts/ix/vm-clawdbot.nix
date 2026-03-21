@@ -1,5 +1,5 @@
 # OpenClaw VM - Ubuntu 24.04 with Node.js 24, NPM, and Nix
-# Uses macvtap (direct mode) - VM gets IP on main network (192.168.1.x)
+# Uses macvtap (direct mode) - VM gets IP on main network (192.168.0.x)
 # SSH: ssh root@<VM_IP> or ssh muad@<VM_IP>
 #
 # Persistent config: OpenClaw config directory ~/.openclaw is symlinked to /mnt/share/openclaw
@@ -89,7 +89,7 @@ let
           - DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
           - DEBIAN_FRONTEND=noninteractive apt-get install -y nfs-common
           - mkdir -p /mnt/share
-          - grep -q '^192.168.1.251:/mnt/arrakis/ix/openclaw/share[[:space:]]\+/mnt/share[[:space:]]\+nfs' /etc/fstab || printf '%s\n' '192.168.1.251:/mnt/arrakis/ix/openclaw/share /mnt/share nfs defaults,_netdev,nofail 0 0' >> /etc/fstab
+          - grep -q '^192.168.0.251:/mnt/arrakis/ix/openclaw/share[[:space:]]\+/mnt/share[[:space:]]\+nfs' /etc/fstab || printf '%s\n' '192.168.0.251:/mnt/arrakis/ix/openclaw/share /mnt/share nfs defaults,_netdev,nofail 0 0' >> /etc/fstab
           - mount -av || true
           # Wait for NFS mount to be ready, then fix ownership for muad
           - while ! mountpoint -q /mnt/share 2>/dev/null; do sleep 1; done
