@@ -62,8 +62,22 @@
   # Network configuration
   networking = {
     hostName = "ix";
+    extraHosts = ''
+      192.168.1.100 calvo.dev
+      192.168.1.100 bag.calvo.dev
+      192.168.1.100 cloud.calvo.dev
+      192.168.1.100 creditscan.calvo.dev
+      192.168.1.100 csapi.calvo.dev
+      192.168.1.100 fif.calvo.dev
+      192.168.1.100 iperf.calvo.dev
+      192.168.1.100 jellyfin.calvo.dev
+      192.168.1.100 nhook.calvo.dev
+      192.168.1.100 overleaf.calvo.dev
+      192.168.1.100 vpn.calvo.dev
+    '';
     firewall.allowedTCPPorts = [
       5000  # overleaf git bridge
+      8765  # nhook webhook server
       18437 # fifoteca backend
       53172 # fifoteca frontend
     ];
