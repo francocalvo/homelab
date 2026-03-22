@@ -95,9 +95,9 @@
       "rw"
       "hard"
       "intr"
+      "bg"
       "_netdev"
       "nofail"
-      "x-systemd.automount"
     ];
   };
 
@@ -108,9 +108,9 @@
       "rw"
       "hard"
       "intr"
+      "bg"
       "_netdev"
       "nofail"
-      "x-systemd.automount"
     ];
   };
 
@@ -122,9 +122,9 @@
       "hard"
       "intr"
       "nolock"
+      "bg"
       "_netdev"
       "nofail"
-      "x-systemd.automount"
     ];
   };
 
