@@ -15,6 +15,7 @@
     after = [ "network.target" ];
     before = [ "podman-wallabag-wallabag.service" ];
     wantedBy = [ "multi-user.target" ];
+    unitConfig.RequiresMountsFor = "/mnt/arrakis";
 
     path = [
       pkgs.git
@@ -146,6 +147,7 @@
   # --- 3. NETWORKS & ROOT TARGET ---
   systemd.services."podman-network-wallabag_default" = {
     path = [ pkgs.podman ];
+    unitConfig.RequiresMountsFor = "/mnt/arrakis";
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;

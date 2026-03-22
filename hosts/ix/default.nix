@@ -47,6 +47,9 @@
     };
   };
 
+  # All ix_default containers depend on NFS mounts via their network service.
+  systemd.services."podman-network-ix_default".unitConfig.RequiresMountsFor = "/mnt/arrakis /mnt/media /mnt/nextcloud";
+
   boot = {
     loader = {
       systemd-boot.enable = true;
@@ -87,6 +90,29 @@
     openssh.enable = true;
   };
 
+  # NFS readiness gate — wait until the NAS is actually reachable before
+  # systemd attempts any NFS mount.  network-online.target alone is not a
+  # strong enough signal on this host (see ERR.md).
+  systemd.services.nfs-nas-wait = {
+    description = "Wait for NAS at 192.168.0.251";
+    after = [ "network-online.target" ];
+    wants = [ "network-online.target" ];
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      TimeoutStartSec = "120";
+    };
+    path = [ pkgs.iproute2 ];
+    script = ''
+      until ip route get 192.168.0.251 >/dev/null 2>&1; do
+        sleep 1
+      done
+      until (echo > /dev/tcp/192.168.0.251/2049) 2>/dev/null; do
+        sleep 1
+      done
+    '';
+  };
+
   # NFS mount configuration
   fileSystems."/mnt/arrakis" = {
     device = "192.168.0.251:/mnt/arrakis/ix";
@@ -95,9 +121,10 @@
       "rw"
       "hard"
       "intr"
-      "bg"
       "_netdev"
       "nofail"
+      "x-systemd.requires=nfs-nas-wait.service"
+      "x-systemd.after=nfs-nas-wait.service"
     ];
   };
 
@@ -108,9 +135,10 @@
       "rw"
       "hard"
       "intr"
-      "bg"
       "_netdev"
       "nofail"
+      "x-systemd.requires=nfs-nas-wait.service"
+      "x-systemd.after=nfs-nas-wait.service"
     ];
   };
 
@@ -122,9 +150,10 @@
       "hard"
       "intr"
       "nolock"
-      "bg"
       "_netdev"
       "nofail"
+      "x-systemd.requires=nfs-nas-wait.service"
+      "x-systemd.after=nfs-nas-wait.service"
     ];
   };
 
