@@ -97,6 +97,16 @@
     description = "Wait for NAS at 192.168.0.251";
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
+    before = [
+      "mnt-arrakis.mount"
+      "mnt-media.mount"
+      "mnt-nextcloud.mount"
+    ];
+    requiredBy = [
+      "mnt-arrakis.mount"
+      "mnt-media.mount"
+      "mnt-nextcloud.mount"
+    ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
@@ -123,8 +133,6 @@
       "intr"
       "_netdev"
       "nofail"
-      "x-systemd.requires=nfs-nas-wait.service"
-      "x-systemd.after=nfs-nas-wait.service"
     ];
   };
 
@@ -137,8 +145,6 @@
       "intr"
       "_netdev"
       "nofail"
-      "x-systemd.requires=nfs-nas-wait.service"
-      "x-systemd.after=nfs-nas-wait.service"
     ];
   };
 
@@ -152,8 +158,6 @@
       "nolock"
       "_netdev"
       "nofail"
-      "x-systemd.requires=nfs-nas-wait.service"
-      "x-systemd.after=nfs-nas-wait.service"
     ];
   };
 
