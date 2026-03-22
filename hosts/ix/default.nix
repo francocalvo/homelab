@@ -97,16 +97,8 @@
     description = "Wait for NAS at 192.168.0.251";
     after = [ "network-online.target" ];
     wants = [ "network-online.target" ];
-    before = [
-      "mnt-arrakis.mount"
-      "mnt-media.mount"
-      "mnt-nextcloud.mount"
-    ];
-    requiredBy = [
-      "mnt-arrakis.mount"
-      "mnt-media.mount"
-      "mnt-nextcloud.mount"
-    ];
+    before = [ "remote-fs-pre.target" ];
+    wantedBy = [ "remote-fs-pre.target" ];
     serviceConfig = {
       Type = "oneshot";
       RemainAfterExit = true;
