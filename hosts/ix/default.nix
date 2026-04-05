@@ -8,9 +8,39 @@
   ...
 }:
 
+/*
+  # Media stack deployment notes
+
+  The `hosts/ix/media` module keeps application config on local disk under
+  `/home/muad/containers/media`, but it expects the shared media directories to
+  already exist on the NAS-backed mounts before first start.
+
+  Run these once on the host after `/mnt/arrakis` and `/mnt/media` are mounted:
+
+    mkdir -p \
+      /mnt/media/downloads \
+      /mnt/media/movies \
+      /mnt/media/series
+
+    chown -R 1000:1000 \
+      /mnt/media/downloads \
+      /mnt/media/movies \
+      /mnt/media/series
+
+    chmod 0775 \
+      /mnt/media/downloads \
+      /mnt/media/movies \
+      /mnt/media/series
+
+  qBittorrent should download into `/data/downloads`, Sonarr should import into
+  `/data/series`, and Radarr should import into `/data/movies`.
+*/
+
 {
   imports = [
     ./hardware-configuration.nix
+
+    ./media
 
     # Containers
     ./container-jellyfin.nix
