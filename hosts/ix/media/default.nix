@@ -10,6 +10,7 @@
     ./qbittorrent.nix
     ./bazarr.nix
     ./recyclarr.nix
+    ./flaresolverr.nix
   ];
 
   systemd.tmpfiles.rules = [
