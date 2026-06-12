@@ -82,6 +82,7 @@ in
     volumes = [
       "${configDir}:/config:rw"
       "/etc/recyclarr/recyclarr.yml:/config/recyclarr.yml:ro"
+      "/run/secrets/recyclarr_secrets:/config/secrets.yml:ro"
     ];
     log-driver = "journald";
     extraOptions = [

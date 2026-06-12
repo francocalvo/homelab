@@ -73,7 +73,7 @@
       };
 
       recyclarr_secrets = {
-        path = "/home/muad/containers/media/recyclarr/secrets.yml";
+        path = "/run/secrets/recyclarr_secrets";
         owner = "muad";
         group = "muad";
         mode = "0600";
