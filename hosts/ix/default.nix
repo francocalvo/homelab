@@ -71,6 +71,13 @@
       immich_env = {
         path = "/mnt/arrakis/immich/.env";
       };
+
+      recyclarr_secrets = {
+        path = "/home/muad/containers/media/recyclarr/secrets.yml";
+        owner = "muad";
+        group = "muad";
+        mode = "0600";
+      };
     };
   };
 

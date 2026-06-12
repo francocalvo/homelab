@@ -16,8 +16,9 @@ in
     # - Sonarr: WEB-1080p
     # - Radarr: HD Bluray + WEB
     #
-    # 2160p and Remux profiles are synced too, but should be selected per
-    # movie/show only when the playback device and network can direct-play them.
+    # Size limits are MB per minute of runtime.
+    # Sonarr 1080p caps prefer about 4.5 GB for a 45m episode and allow up to 9 GB.
+    # Radarr 1080p caps prefer about 18 GB for a 2h movie and allow up to 36 GB.
 
     sonarr:
       series:
@@ -26,12 +27,24 @@ in
         delete_old_custom_formats: true
         quality_definition:
           type: series
+          qualities:
+            - name: HDTV-1080p
+              max: 200
+              preferred: 100
+
+            - name: WEBRip-1080p
+              max: 200
+              preferred: 100
+
+            - name: WEBDL-1080p
+              max: 200
+              preferred: 100
+
+            - name: Bluray-1080p
+              max: 200
+              preferred: 100
         quality_profiles:
           - trash_id: 72dae194fc92bf828f32cde7744e51a1 # WEB-1080p
-            reset_unmatched_scores:
-              enabled: true
-
-          - trash_id: d1498e7d189fbe6c7110ceaabb7473e6 # WEB-2160p
             reset_unmatched_scores:
               enabled: true
 
@@ -42,20 +55,20 @@ in
         delete_old_custom_formats: true
         quality_definition:
           type: movie
+          qualities:
+            - name: Bluray-1080p
+              max: 300
+              preferred: 150
+
+            - name: WEBDL-1080p
+              max: 300
+              preferred: 150
+
+            - name: WEBRip-1080p
+              max: 300
+              preferred: 150
         quality_profiles:
           - trash_id: d1d67249d3890e49bc12e275d989a7e9 # HD Bluray + WEB
-            reset_unmatched_scores:
-              enabled: true
-
-          - trash_id: 64fb5f9858489bdac2af690e27c8f42f # UHD Bluray + WEB
-            reset_unmatched_scores:
-              enabled: true
-
-          - trash_id: 9ca12ea80aa55ef916e3751f4b874151 # Remux + WEB 1080p
-            reset_unmatched_scores:
-              enabled: true
-
-          - trash_id: fd161a61e3ab826d3a22d53f935696dd # Remux + WEB 2160p
             reset_unmatched_scores:
               enabled: true
   '';
