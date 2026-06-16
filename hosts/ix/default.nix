@@ -49,6 +49,7 @@
     ./container-overleaf.nix
     ./container-wallabag.nix
     ./container-immich.nix
+    ./container-litellm.nix
 
     # VMs
     ./vm-clawdbot.nix
@@ -77,6 +78,14 @@
         owner = "muad";
         group = "muad";
         mode = "0600";
+      };
+
+      litellm_config = {
+        path = "/mnt/arrakis/litellm/config.yaml";
+      };
+
+      litellm_env = {
+        path = "/mnt/arrakis/litellm/.env";
       };
     };
   };
@@ -119,8 +128,10 @@
       192.168.0.100 nhook.calvo.dev
       192.168.0.100 overleaf.calvo.dev
       192.168.0.100 vpn.calvo.dev
+      192.168.0.100 litellm.calvo.dev
     '';
     firewall.allowedTCPPorts = [
+      4000  # litellm AI gateway
       5000  # overleaf git bridge
       8765  # nhook webhook server
       18437 # fifoteca backend
