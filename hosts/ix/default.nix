@@ -98,8 +98,6 @@
     };
   };
 
-  homelab.litellm.enable = true;
-
   # All ix_default containers depend on NFS mounts via their network service.
   systemd.services."podman-network-ix_default".unitConfig.RequiresMountsFor = "/mnt/arrakis /mnt/media /mnt/nextcloud";
 

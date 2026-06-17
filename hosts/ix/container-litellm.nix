@@ -15,57 +15,46 @@
   ...
 }:
 
-let
-  cfg = config.homelab.litellm;
-  inherit (lib) mkEnableOption mkIf;
-in
 {
-  options.homelab.litellm = {
-    enable = mkEnableOption "LiteLLM AI Gateway proxy server";
+  virtualisation.oci-containers.containers."litellm" = {
+    image = "ghcr.io/berriai/litellm:main-latest";
+    environmentFiles = [
+      "/mnt/arrakis/litellm/.env"
+    ];
+    volumes = [
+      "/mnt/arrakis/litellm/config.yaml:/app/config.yaml:ro,z"
+    ];
+    ports = [
+      "4000:4000/tcp"
+    ];
+    log-driver = "journald";
+    cmd = [
+      "--config"
+      "/app/config.yaml"
+      "--detailed_debug"
+    ];
+    extraOptions = [
+      "--network-alias=litellm"
+      "--network=ix_default"
+    ];
   };
 
-  config = mkIf cfg.enable {
-    # LiteLLM Proxy Container
-    virtualisation.oci-containers.containers."ix-litellm" = {
-      image = "ghcr.io/berriai/litellm:main-latest";
-      environmentFiles = [
-        "/mnt/arrakis/litellm/.env"
-      ];
-      volumes = [
-        "/mnt/arrakis/litellm/config.yaml:/app/config.yaml:ro,z"
-      ];
-      ports = [
-        "4000:4000/tcp"
-      ];
-      log-driver = "journald";
-      cmd = [
-        "--config"
-        "/app/config.yaml"
-        "--detailed_debug"
-      ];
-      extraOptions = [
-        "--network-alias=litellm"
-        "--network=ix_default"
-      ];
+  systemd.services."podman-litellm" = {
+    serviceConfig = {
+      Restart = lib.mkOverride 90 "always";
     };
-
-    systemd.services."podman-ix-litellm" = {
-      serviceConfig = {
-        Restart = lib.mkOverride 90 "always";
-      };
-      unitConfig.RequiresMountsFor = "/mnt/arrakis";
-      after = [
-        "podman-network-ix_default.service"
-      ];
-      requires = [
-        "podman-network-ix_default.service"
-      ];
-      partOf = [
-        "podman-compose-ix-root.target"
-      ];
-      wantedBy = [
-        "podman-compose-ix-root.target"
-      ];
-    };
+    unitConfig.RequiresMountsFor = "/mnt/arrakis";
+    after = [
+      "podman-network-ix_default.service"
+    ];
+    requires = [
+      "podman-network-ix_default.service"
+    ];
+    partOf = [
+      "podman-compose-ix-root.target"
+    ];
+    wantedBy = [
+      "podman-compose-ix-root.target"
+    ];
   };
 }
