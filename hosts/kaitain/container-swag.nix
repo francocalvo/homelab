@@ -14,7 +14,8 @@ let
     "cloud"       # nextcloud
     "bag"         # wallabag
     "overleaf"    # overleaf
-    "photos"       # immich
+    "photos"      # immich
+    "litellm"     # litellm AI gateway
   ];
   subdomains = lib.concatStringsSep ", " services;
   ixHost = "192.168.0.4";
