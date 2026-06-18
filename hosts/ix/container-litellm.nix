@@ -16,6 +16,32 @@
 }:
 
 {
+  ## DB Container
+  virtualisation.oci-containers.containers."litellm-db" = {
+    image = "postgres:17-alpine";
+    environmentFiles = [ "/mnt/arrakis/litellm/.env" ];
+    volumes = [ "/mnt/arrakis/litellm/database:/var/lib/postgresql/data" ];
+    log-driver = "journald";
+    extraOptions = [
+      "--health-cmd=pg_isready -U litellm"
+      "--health-interval=20s"
+      "--health-timeout=3s"
+      "--health-retries=5"
+      "--network-alias=litellm-db"
+      "--network=ix_default"
+    ];
+  };
+
+  systemd.services."podman-litellm-db" = {
+    serviceConfig.Restart = lib.mkOverride 90 "always";
+    unitConfig.RequiresMountsFor = "/mnt/arrakis";
+    after = [ "podman-network-ix_default.service" ];
+    requires = [ "podman-network-ix_default.service" ];
+    partOf = [ "podman-compose-ix-root.target" ];
+    wantedBy = [ "podman-compose-ix-root.target" ];
+  };
+
+  ## LiteLLM Proxy Container
   virtualisation.oci-containers.containers."litellm" = {
     image = "ghcr.io/berriai/litellm:main-latest";
     environmentFiles = [
@@ -23,6 +49,9 @@
     ];
     volumes = [
       "/mnt/arrakis/litellm/config.yaml:/app/config.yaml:ro,z"
+    ];
+    dependsOn = [
+      "litellm-db"
     ];
     ports = [
       "4000:4000/tcp"
@@ -46,6 +75,7 @@
     unitConfig.RequiresMountsFor = "/mnt/arrakis";
     after = [
       "podman-network-ix_default.service"
+      "podman-litellm-db.service"
     ];
     requires = [
       "podman-network-ix_default.service"
