@@ -80,6 +80,13 @@
         mode = "0600";
       };
 
+      media_clients_secrets = {
+        path = "/run/secrets/media_clients_secrets";
+        owner = "root";
+        group = "root";
+        mode = "0400";
+      };
+
       litellm_config = {
         path = "/mnt/arrakis/litellm/config.yaml";
       };

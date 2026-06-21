@@ -11,6 +11,7 @@
     ./bazarr.nix
     ./recyclarr.nix
     ./flaresolverr.nix
+    ./download-clients.nix
   ];
 
   systemd.tmpfiles.rules = [
