@@ -82,6 +82,18 @@ let
         return opener
 
 
+    def wait_for_qbittorrent(username, password, attempts=60):
+        last_error = None
+        for _ in range(attempts):
+            try:
+                qb_login(username, password)
+                return
+            except Exception as exc:
+                last_error = exc
+                time.sleep(2)
+        raise RuntimeError(f"Timed out waiting for authenticated qBittorrent API: {last_error}")
+
+
     def qb_post(opener, path, form):
         data = urllib.parse.urlencode(form).encode("utf-8")
         request = urllib.request.Request(f"{QB_BASE}{path}", data=data, method="POST")
@@ -192,7 +204,7 @@ let
             raise RuntimeError(f"Missing required secret: {required}")
 
     ensure_download_dirs()
-    wait_for(f"{QB_BASE}/api/v2/app/version")
+    wait_for_qbittorrent(SECRETS["qbittorrent_username"], SECRETS["qbittorrent_password"])
 
     sonarr_key = arr_api_key("/home/muad/containers/media/sonarr/config.xml")
     radarr_key = arr_api_key("/home/muad/containers/media/radarr/config.xml")
