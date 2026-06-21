@@ -12,6 +12,7 @@
     ./recyclarr.nix
     ./flaresolverr.nix
     ./download-clients.nix
+    ./seerr.nix
   ];
 
   systemd.tmpfiles.rules = [
@@ -22,5 +23,6 @@
     "d /home/muad/containers/media/qbittorrent 0755 1000 1000 -"
     "d /home/muad/containers/media/bazarr 0755 1000 1000 -"
     "d /home/muad/containers/media/recyclarr 0755 1000 1000 -"
+    "d /home/muad/containers/media/seerr 0755 1000 1000 -"
   ];
 }
