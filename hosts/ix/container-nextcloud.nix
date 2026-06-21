@@ -47,6 +47,20 @@ let
   nextcloud_version = "32.0.0-fpm";
 in
 {
+  systemd.services."podman-network-ix_nextcloud" = {
+    path = [ pkgs.podman ];
+    unitConfig.RequiresMountsFor = "/mnt/arrakis /mnt/nextcloud";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStop = "${pkgs.podman}/bin/podman network rm -f ix_nextcloud";
+    };
+    script = ''
+      podman network inspect ix_nextcloud || podman network create ix_nextcloud
+    '';
+    partOf = [ "podman-compose-ix-root.target" ];
+    wantedBy = [ "podman-compose-ix-root.target" ];
+  };
 
   # Nextloud Application Server
   virtualisation.oci-containers.containers."ix-app" = {
@@ -65,7 +79,7 @@ in
     log-driver = "journald";
     extraOptions = [
       "--network-alias=app"
-      "--network=ix_default"
+      "--network=ix_nextcloud"
     ];
   };
   systemd.services."podman-ix-app" = {
@@ -73,10 +87,10 @@ in
       Restart = lib.mkOverride 90 "always";
     };
     after = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     partOf = [
       "podman-compose-ix-root.target"
@@ -101,7 +115,7 @@ in
     extraOptions = [
       "--entrypoint=[\"/cron.sh\"]"
       "--network-alias=cron"
-      "--network=ix_default"
+      "--network=ix_nextcloud"
     ];
   };
   systemd.services."podman-ix-cron" = {
@@ -109,10 +123,10 @@ in
       Restart = lib.mkOverride 90 "always";
     };
     after = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     partOf = [
       "podman-compose-ix-root.target"
@@ -134,7 +148,7 @@ in
     log-driver = "journald";
     extraOptions = [
       "--network-alias=db"
-      "--network=ix_default"
+      "--network=ix_nextcloud"
     ];
   };
   systemd.services."podman-ix-db" = {
@@ -142,10 +156,10 @@ in
       Restart = lib.mkOverride 90 "always";
     };
     after = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     partOf = [
       "podman-compose-ix-root.target"
@@ -168,7 +182,7 @@ in
     extraOptions = [
       "--cap-add=SYS_NICE"
       "--network-alias=imaginary"
-      "--network=ix_default"
+      "--network=ix_nextcloud"
     ];
   };
   systemd.services."podman-ix-imaginary" = {
@@ -176,10 +190,10 @@ in
       Restart = lib.mkOverride 90 "always";
     };
     after = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     partOf = [
       "podman-compose-ix-root.target"
@@ -211,7 +225,7 @@ in
     extraOptions = [
       "--entrypoint=sh"
       "--network-alias=notify_push"
-      "--network=ix_default"
+      "--network=ix_nextcloud"
     ];
   };
   systemd.services."podman-ix-notify_push" = {
@@ -219,10 +233,10 @@ in
       Restart = lib.mkOverride 90 "always";
     };
     after = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     partOf = [
       "podman-compose-ix-root.target"
@@ -243,7 +257,7 @@ in
       "--health-start-period=10s"
       "--health-timeout=3s"
       "--network-alias=redis"
-      "--network=ix_default"
+      "--network=ix_nextcloud"
     ];
   };
   systemd.services."podman-ix-redis" = {
@@ -251,10 +265,10 @@ in
       Restart = lib.mkOverride 90 "always";
     };
     after = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     partOf = [
       "podman-compose-ix-root.target"
@@ -281,7 +295,7 @@ in
     log-driver = "journald";
     extraOptions = [
       "--network-alias=webserver"
-      "--network=ix_default"
+      "--network=ix_nextcloud"
     ];
   };
   systemd.services."podman-ix-webserver" = {
@@ -289,10 +303,10 @@ in
       Restart = lib.mkOverride 90 "always";
     };
     after = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_nextcloud.service"
     ];
     partOf = [
       "podman-compose-ix-root.target"

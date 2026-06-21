@@ -105,9 +105,6 @@
     };
   };
 
-  # Shared non-media containers depend on their backing NFS mounts via the network service.
-  systemd.services."podman-network-ix_default".unitConfig.RequiresMountsFor = "/mnt/arrakis /mnt/nextcloud";
-
   boot = {
     loader = {
       systemd-boot.enable = true;

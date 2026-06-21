@@ -16,6 +16,21 @@
 }:
 
 {
+  systemd.services."podman-network-ix_litellm" = {
+    path = [ pkgs.podman ];
+    unitConfig.RequiresMountsFor = "/mnt/arrakis";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStop = "${pkgs.podman}/bin/podman network rm -f ix_litellm";
+    };
+    script = ''
+      podman network inspect ix_litellm || podman network create ix_litellm
+    '';
+    partOf = [ "podman-compose-ix-root.target" ];
+    wantedBy = [ "podman-compose-ix-root.target" ];
+  };
+
   ## DB Container
   virtualisation.oci-containers.containers."litellm-db" = {
     image = "postgres:17-alpine";
@@ -28,15 +43,15 @@
       "--health-timeout=3s"
       "--health-retries=5"
       "--network-alias=litellm-db"
-      "--network=ix_default"
+      "--network=ix_litellm"
     ];
   };
 
   systemd.services."podman-litellm-db" = {
     serviceConfig.Restart = lib.mkOverride 90 "always";
     unitConfig.RequiresMountsFor = "/mnt/arrakis";
-    after = [ "podman-network-ix_default.service" ];
-    requires = [ "podman-network-ix_default.service" ];
+    after = [ "podman-network-ix_litellm.service" ];
+    requires = [ "podman-network-ix_litellm.service" ];
     partOf = [ "podman-compose-ix-root.target" ];
     wantedBy = [ "podman-compose-ix-root.target" ];
   };
@@ -64,7 +79,7 @@
     ];
     extraOptions = [
       "--network-alias=litellm"
-      "--network=ix_default"
+      "--network=ix_litellm"
     ];
   };
 
@@ -74,11 +89,11 @@
     };
     unitConfig.RequiresMountsFor = "/mnt/arrakis";
     after = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_litellm.service"
       "podman-litellm-db.service"
     ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_litellm.service"
     ];
     partOf = [
       "podman-compose-ix-root.target"

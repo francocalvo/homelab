@@ -22,6 +22,21 @@ let
   '';
 in
 {
+  systemd.services."podman-network-ix_overleaf" = {
+    path = [ pkgs.podman ];
+    unitConfig.RequiresMountsFor = "/mnt/arrakis";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStop = "${pkgs.podman}/bin/podman network rm -f ix_overleaf";
+    };
+    script = ''
+      podman network inspect ix_overleaf || podman network create ix_overleaf
+    '';
+    partOf = [ "podman-compose-ix-root.target" ];
+    wantedBy = [ "podman-compose-ix-root.target" ];
+  };
+
   # Overleaf Web Application
   virtualisation.oci-containers.containers."ix-overleaf" = {
     image = "sharelatex/sharelatex:${overleaf_version}";
@@ -55,7 +70,7 @@ in
     log-driver = "journald";
     extraOptions = [
       "--network-alias=sharelatex"
-      "--network=ix_default"
+      "--network=ix_overleaf"
     ];
   };
   systemd.services."podman-ix-overleaf" = {
@@ -63,11 +78,11 @@ in
       Restart = lib.mkOverride 90 "always";
     };
     after = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_overleaf.service"
       "overleaf-mongo-init-rs.service"
     ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_overleaf.service"
       "overleaf-mongo-init-rs.service"
     ];
     partOf = [ "podman-compose-ix-root.target" ];
@@ -89,15 +104,15 @@ in
     log-driver = "journald";
     extraOptions = [
       "--network-alias=mongo"
-      "--network=ix_default"
+      "--network=ix_overleaf"
     ];
   };
   systemd.services."podman-ix-overleaf-mongo" = {
     serviceConfig = {
       Restart = lib.mkOverride 90 "always";
     };
-    after = [ "podman-network-ix_default.service" ];
-    requires = [ "podman-network-ix_default.service" ];
+    after = [ "podman-network-ix_overleaf.service" ];
+    requires = [ "podman-network-ix_overleaf.service" ];
     partOf = [ "podman-compose-ix-root.target" ];
     wantedBy = [ "podman-compose-ix-root.target" ];
   };
@@ -113,15 +128,15 @@ in
     log-driver = "journald";
     extraOptions = [
       "--network-alias=redis"
-      "--network=ix_default"
+      "--network=ix_overleaf"
     ];
   };
   systemd.services."podman-ix-overleaf-redis" = {
     serviceConfig = {
       Restart = lib.mkOverride 90 "always";
     };
-    after = [ "podman-network-ix_default.service" ];
-    requires = [ "podman-network-ix_default.service" ];
+    after = [ "podman-network-ix_overleaf.service" ];
+    requires = [ "podman-network-ix_overleaf.service" ];
     partOf = [ "podman-compose-ix-root.target" ];
     wantedBy = [ "podman-compose-ix-root.target" ];
   };

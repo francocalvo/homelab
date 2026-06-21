@@ -11,6 +11,21 @@ let
   immichVersion = "release";
 in
 {
+  systemd.services."podman-network-ix_immich" = {
+    path = [ pkgs.podman ];
+    unitConfig.RequiresMountsFor = "/mnt/arrakis";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStop = "${pkgs.podman}/bin/podman network rm -f ix_immich";
+    };
+    script = ''
+      podman network inspect ix_immich || podman network create ix_immich
+    '';
+    partOf = [ "podman-compose-ix-root.target" ];
+    wantedBy = [ "podman-compose-ix-root.target" ];
+  };
+
   # Immich Server Container
   virtualisation.oci-containers.containers."immich-server" = {
     image = "ghcr.io/immich-app/immich-server:${immichVersion}";
@@ -27,16 +42,16 @@ in
     log-driver = "journald";
     extraOptions = [
       "--network-alias=immich-server"
-      "--network=ix_default"
+      "--network=ix_immich"
     ];
   };
   systemd.services."podman-immich-server" = {
     serviceConfig = {
       Restart = lib.mkOverride 90 "always";
     };
-    after = [ "podman-network-ix_default.service" ];
+    after = [ "podman-network-ix_immich.service" ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_immich.service"
       "mnt-arrakis.mount"
     ];
     partOf = [ "podman-compose-ix-root.target" ];
@@ -53,16 +68,16 @@ in
     log-driver = "journald";
     extraOptions = [
       "--network-alias=immich-machine-learning"
-      "--network=ix_default"
+      "--network=ix_immich"
     ];
   };
   systemd.services."podman-immich-machine-learning" = {
     serviceConfig = {
       Restart = lib.mkOverride 90 "always";
     };
-    after = [ "podman-network-ix_default.service" ];
+    after = [ "podman-network-ix_immich.service" ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_immich.service"
       "mnt-arrakis.mount"
     ];
     partOf = [ "podman-compose-ix-root.target" ];
@@ -75,16 +90,16 @@ in
     log-driver = "journald";
     extraOptions = [
       "--network-alias=redis"
-      "--network=ix_default"
+      "--network=ix_immich"
     ];
   };
   systemd.services."podman-immich-redis" = {
     serviceConfig = {
       Restart = lib.mkOverride 90 "always";
     };
-    after = [ "podman-network-ix_default.service" ];
+    after = [ "podman-network-ix_immich.service" ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_immich.service"
       "mnt-arrakis.mount"
     ];
     partOf = [ "podman-compose-ix-root.target" ];
@@ -104,7 +119,7 @@ in
     log-driver = "journald";
     extraOptions = [
       "--network-alias=database"
-      "--network=ix_default"
+      "--network=ix_immich"
       "--shm-size=128mb"
     ];
   };
@@ -112,9 +127,9 @@ in
     serviceConfig = {
       Restart = lib.mkOverride 90 "always";
     };
-    after = [ "podman-network-ix_default.service" ];
+    after = [ "podman-network-ix_immich.service" ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_immich.service"
       "mnt-arrakis.mount"
     ];
     partOf = [ "podman-compose-ix-root.target" ];

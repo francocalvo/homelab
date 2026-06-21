@@ -152,7 +152,7 @@ in
     log-driver = "journald";
     extraOptions = [
       "--network-alias=git-bridge"
-      "--network=ix_default"
+      "--network=ix_overleaf"
     ];
   };
   systemd.services."podman-ix-git-bridge" = {
@@ -160,12 +160,12 @@ in
       Restart = lib.mkOverride 90 "always";
     };
     after = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_overleaf.service"
       "podman-load-git-bridge.service"
       "podman-ix-overleaf.service"
     ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_overleaf.service"
       "podman-load-git-bridge.service"
     ];
     partOf = [ "podman-compose-ix-root.target" ];
