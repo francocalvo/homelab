@@ -101,6 +101,14 @@ let
             response.read()
 
 
+    def qb_post_ignore_conflict(opener, path, form):
+        try:
+            qb_post(opener, path, form)
+        except urllib.error.HTTPError as exc:
+            if exc.code != 409:
+                raise
+
+
     def configure_qbittorrent(username, password):
         opener = qb_login(username, password)
         qb_post(
@@ -122,12 +130,8 @@ let
             "radarr": "/data/downloads/radarr",
         }.items():
             form = {"category": category, "savePath": save_path}
-            try:
-                qb_post(opener, "/api/v2/torrents/createCategory", form)
-            except urllib.error.HTTPError as exc:
-                if exc.code != 409:
-                    raise
-            qb_post(opener, "/api/v2/torrents/editCategory", form)
+            qb_post_ignore_conflict(opener, "/api/v2/torrents/createCategory", form)
+            qb_post_ignore_conflict(opener, "/api/v2/torrents/editCategory", form)
 
 
     def ensure_download_dirs():
