@@ -1,4 +1,5 @@
 {
+  pkgs,
   ...
 }:
 
@@ -14,6 +15,21 @@
     ./download-clients.nix
     ./seerr.nix
   ];
+
+  systemd.services."podman-network-ix_media" = {
+    path = [ pkgs.podman ];
+    unitConfig.RequiresMountsFor = "/mnt/arrakis /mnt/media";
+    serviceConfig = {
+      Type = "oneshot";
+      RemainAfterExit = true;
+      ExecStop = "${pkgs.podman}/bin/podman network rm -f ix_media";
+    };
+    script = ''
+      podman network inspect ix_media || podman network create ix_media
+    '';
+    partOf = [ "podman-compose-ix-root.target" ];
+    wantedBy = [ "podman-compose-ix-root.target" ];
+  };
 
   systemd.tmpfiles.rules = [
     "d /home/muad/containers/media 0755 1000 1000 -"

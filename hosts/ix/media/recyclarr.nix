@@ -88,15 +88,15 @@ in
     extraOptions = [
       "--user=1000:1000"
       "--network-alias=recyclarr"
-      "--network=ix_default"
+      "--network=ix_media"
       "--security-opt=no-new-privileges"
     ];
   };
 
   systemd.services."podman-recyclarr" = {
     serviceConfig.Restart = lib.mkOverride 90 "always";
-    after = [ "podman-network-ix_default.service" ];
-    requires = [ "podman-network-ix_default.service" ];
+    after = [ "podman-network-ix_media.service" ];
+    requires = [ "podman-network-ix_media.service" ];
     partOf = [ "podman-compose-ix-root.target" ];
     wantedBy = [ "podman-compose-ix-root.target" ];
   };

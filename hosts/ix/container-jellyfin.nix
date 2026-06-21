@@ -25,7 +25,7 @@
     log-driver = "journald";
     extraOptions = [
       "--network-alias=jellyfin"
-      "--network=ix_default"
+      "--network=ix_media"
     ];
   };
   systemd.services."podman-jellyfin" = {
@@ -33,10 +33,10 @@
       Restart = lib.mkOverride 90 "always";
     };
     after = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_media.service"
     ];
     requires = [
-      "podman-network-ix_default.service"
+      "podman-network-ix_media.service"
     ];
     partOf = [
       "podman-compose-ix-root.target"

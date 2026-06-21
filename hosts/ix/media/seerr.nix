@@ -21,14 +21,14 @@
     extraOptions = [
       "--init"
       "--network-alias=seerr"
-      "--network=ix_default"
+      "--network=ix_media"
     ];
   };
 
   systemd.services."podman-seerr" = {
     serviceConfig.Restart = lib.mkOverride 90 "always";
-    after = [ "podman-network-ix_default.service" ];
-    requires = [ "podman-network-ix_default.service" ];
+    after = [ "podman-network-ix_media.service" ];
+    requires = [ "podman-network-ix_media.service" ];
     partOf = [ "podman-compose-ix-root.target" ];
     wantedBy = [ "podman-compose-ix-root.target" ];
   };

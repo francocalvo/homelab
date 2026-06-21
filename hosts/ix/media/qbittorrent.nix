@@ -24,14 +24,14 @@
     log-driver = "journald";
     extraOptions = [
       "--network-alias=qbittorrent"
-      "--network=ix_default"
+      "--network=ix_media"
     ];
   };
 
   systemd.services."podman-qbittorrent" = {
     serviceConfig.Restart = lib.mkOverride 90 "always";
-    after = [ "podman-network-ix_default.service" ];
-    requires = [ "podman-network-ix_default.service" ];
+    after = [ "podman-network-ix_media.service" ];
+    requires = [ "podman-network-ix_media.service" ];
     partOf = [ "podman-compose-ix-root.target" ];
     wantedBy = [ "podman-compose-ix-root.target" ];
   };
