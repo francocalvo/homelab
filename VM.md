@@ -1,159 +1,120 @@
-# VM Notes: openclaw
+# VM Notes: Hermes (OpenClaw)
 
-## Disk Management (QCOW2 Overlay System)
+Hermes is the libvirt VM that runs the OpenClaw personal AI assistant gateway on
+the `ix` host.
 
-The VM now uses a declarative QCOW2 overlay system for better reproducibility:
+## Current status
 
-- **Base image**: Stored in Nix store at `/nix/store/xxxx-ubuntu-noble-cloudimg/base.qcow2` (immutable, 0444 permissions, no unpack)
-- **Overlay**: Mutable QCOW2 at `/mnt/arrakis/openclaw/disk/openclaw.qcow2` (copy-on-write)
-- **Automatic creation**: Overlay is created atomically on base/ISO/XML changes via `restartTriggers`
-- **Base image pinned**: URL and sha256 hash are in Nix configuration
-- **Lock file**: `/mnt/arrakis/openclaw/disk/.openclaw.lock` prevents concurrent creation
-- **Ownership**: `libvirt-qemu:libvirt-qemu` for proper libvirt access
+- VM name: `hermes`
+- Host: `ix` (NixOS)
+- Config file: `hosts/ix/vm-hermes.nix`
+- Network: libvirt macvtap/direct on `enp3s0`
+- Disk path: `/mnt/arrakis/hermes/disk/hermes.qcow2`
+- Cloud-init ISO: `/mnt/arrakis/hermes/cloud-init.iso`
+- Systemd unit: `libvirt-guest-hermes.service`
 
-### Benefits
+## Disk management (QCOW2 overlay system)
 
-- Base image is declarative and tracked in config
-- No manual disk download steps required
-- Change hash → overlay recreates → clean reprovision
-- Delete overlay manually → reset to pristine on next switch
-- NFS persistence (already working) survives reprovisions
-- **Hardening improvements**:
-  - Atomic overlay creation prevents partial writes
-  - Lock-based coordination prevents race conditions
-  - VM can be running during rebuild (qemu-img -U)
-  - Base image is explicitly read-only (0444 permissions)
+The VM uses a declarative QCOW2 overlay system for reproducibility:
+
+- **Base image**: stored in the Nix store as `ubuntu-noble-cloudimg/base.qcow2`
+  (immutable, pinned URL/hash in the Nix config)
+- **Overlay**: mutable QCOW2 at `/mnt/arrakis/hermes/disk/hermes.qcow2`
+- **Automatic creation**: overlay is created atomically on base/ISO/XML changes
+  via `restartTriggers`
+- **Lock file**: `/mnt/arrakis/hermes/disk/.hermes.lock`
 
 ### Operations
 
 | Task | Command |
 |------|---------|
-| Reset VM to pristine | `rm /mnt/arrakis/openclaw/disk/openclaw.qcow2 && sudo systemctl restart libvirt-guest-openclaw` |
-| Update base image | Change URL/hash in config, `nixos-rebuild switch` (overlay auto-recreates) |
-| Check backing file | `qemu-img info /mnt/arrakis/openclaw/disk/openclaw.qcow2 \| grep backing` |
-| Reclaim old base images | `nix-collect-garbage` (after switching to new base) |
+| Reset VM to pristine | `sudo rm -f /mnt/arrakis/hermes/disk/hermes.qcow2 && sudo systemctl restart libvirt-guest-hermes` |
+| Update base image | Change URL/hash in `hosts/ix/vm-hermes.nix`, then `nixos-rebuild switch` |
+| Check backing file | `qemu-img info /mnt/arrakis/hermes/disk/hermes.qcow2 \| grep backing` |
+| Reclaim old base images | `nix-collect-garbage` after switching to a new base |
 
-### Migration from Old Setup
+To get the hash for a new Ubuntu cloud image:
 
-If you're migrating from the previous manual disk setup:
+```bash
+nix-prefetch-url https://cloud-images.ubuntu.com/noble/20260108/noble-server-cloudimg-amd64.img
+```
 
-1. **Get the hash for the pinned image:**
+## OpenClaw persistence
+
+- The VM mounts the NAS export
+  `192.168.0.251:/mnt/arrakis/ix/hermes/share` at `/mnt/share`.
+- OpenClaw state is stored under `/mnt/share/openclaw`.
+- The `muad` user's `~/.openclaw` is symlinked to `/mnt/share/openclaw` during
+  cloud-init.
+- The directory is owned by `muad:muad` after the NFS mount becomes available.
+
+Useful checks inside the VM:
+
+```bash
+ls -la ~/.openclaw
+ls -ld /mnt/share/openclaw
+npm -g ls --depth=0
+```
+
+If OpenClaw gets `EACCES` errors writing to `~/.openclaw`, fix ownership:
+
+```bash
+sudo chown -R muad:muad /mnt/share/openclaw
+```
+
+## Fresh deployment from the old `openclaw` VM
+
+This configuration intentionally creates a new Hermes VM and storage root. To
+start from a clean OpenClaw context, remove the old VM and old OpenClaw storage
+instead of migrating state:
+
+```bash
+sudo virsh shutdown openclaw || true
+sudo virsh undefine openclaw || true
+sudo rm -rf /mnt/arrakis/openclaw
+sudo rm -rf /mnt/arrakis/hermes/share/openclaw
+```
+
+## Recovery plan
+
+1. Destroy the VM without deleting the definition:
    ```bash
-   nix-prefetch-url https://cloud-images.ubuntu.com/noble/20260108/noble-server-cloudimg-amd64.img
+   sudo virsh destroy hermes || true
    ```
-   Update the `sha256` value in `hosts/ix/vm-clawdbot.nix`
-
-2. **Stop the current VM:**
-   ```bash
-   sudo virsh shutdown openclaw
-   ```
-
-3. **Backup current state (optional):**
-   ```bash
-   cp /mnt/arrakis/openclaw/disk/openclaw.qcow2 /mnt/arrakis/openclaw/disk/openclaw.qcow2.backup
-   ```
-
-4. **Remove the old disk image:**
-   ```bash
-   rm /mnt/arrakis/openclaw/disk/openclaw.qcow2
-   ```
-
-5. **Deploy the new config:**
-   ```bash
-   sudo nixos-rebuild switch
-   ```
-   This will build the base image in the Nix store and create the overlay automatically.
-
-6. **Verify:**
-   ```bash
-   qemu-img info /mnt/arrakis/openclaw/disk/openclaw.qcow2
-   ```
-   Should show `backing file: /nix/store/xxxx-ubuntu-noble-cloudimg/base.qcow2`
-
-**Note**: A lock file at `/mnt/arrakis/openclaw/disk/.openclaw.lock` is used during overlay creation. If overlay creation is interrupted (e.g., crash), clean up any `.tmp` files in the disk directory and restart the service.
-
----
-
-## Current status
-- VM name: `openclaw`
-- Host: `ix` (NixOS)
-- Libvirt VM using macvtap/direct on `enp3s0`
-- Disk path: `/mnt/arrakis/openclaw/disk/openclaw.qcow2`
-- Cloud-init ISO: `/mnt/arrakis/openclaw/cloud-init.iso`
-- Current MAC: `52:54:00:3e:ed:7f`
-- VM state: running (as of last check)
-
-## Config file
-- Nix file: `hosts/ix/vm-clawdbot.nix`
-- Cloud-init is generated via Nix and linked into `/mnt/arrakis/openclaw/cloud-init.iso`
-- **Disk management**: Uses Nix store base image with QCOW2 overlay (see "Disk Management" section above)
-  - Base image is declarative (pinned URL + hash in Nix)
-  - Overlay created automatically on `nixos-rebuild switch`
-  - Overlay recreates if backing file changes (change hash in config)
-- Libvirt XML is redefined only when the XML hash changes
-
-## Config Persistence
-- **OpenClaw config persistence**: The VM's `~/.openclaw` directory is symlinked to `/mnt/share/openclaw` (NFS)
-- This ensures OpenClaw configuration survives VM re-provisioning (qcow2 replacement)
-- The symlink is created automatically during cloud-init's `runcmd` phase
-- **Ownership**: `/mnt/share/openclaw` is automatically owned by `muad:muad` via cloud-init (after NFS mount)
-- **To reset OpenClaw config**: Delete the contents of `/mnt/share/openclaw` on the host (after stopping the VM)
-- **To verify the symlink**: Inside the VM as user `muad`, run `ls -la ~/.openclaw` - it should point to `/mnt/share/openclaw`
-- **To verify ownership**: `ls -ld /mnt/share/openclaw` should show `muad:muad`
-
-## Known Issues: OpenClaw Permission Errors
-If OpenClaw agent (running as `muad`) gets `EACCES` errors trying to write to `~/.openclaw`:
-- Check that `/mnt/share/openclaw` is owned by `muad:muad`: `ls -ld /mnt/share/openclaw`
-- Fix it manually: `sudo chown -R muad:muad /mnt/share/openclaw`
-- Cloud-init should fix this automatically on next VM reprovision (waits for NFS mount before chown)
-
-## Recent actions
-- Old VM definition removed: `virsh shutdown/destroy/undefine openclaw`
-- Entire `/mnt/arrakis/openclaw` directory deleted
-- Config pulled on `ix` and rebuild run; service failed because disk was missing (expected)
-- Disk and ISO re-created; VM started
-
-## Known issues
-- `qemu-guest-agent` not responding yet; `virsh domifaddr --source agent` fails
-- SSH to `muad@<vm-ip>` failing with `Permission denied (publickey)`
-- Router shows a DHCP client named `ubuntu` (likely the VM)
-- Host ARP scan does not show VM due to macvtap isolation
-
-
-## Recovery plan (recommended)
-1. Destroy the VM (not the definition):
-    - `virsh destroy openclaw || true`
 2. Delete the overlay:
-    - `sudo rm -f /mnt/arrakis/openclaw/disk/openclaw.qcow2`
-3. Restart the service (overlay auto-created from base image):
-    - `sudo systemctl restart libvirt-guest-openclaw`
-4. Find the IP:
-    - Check router DHCP leases for MAC `52:54:00:3e:ed:7f` or hostname `openclaw`
-5. SSH:
-    - `ssh muad@<VM_IP>`
-6. Mount NFS share (if not mounted):
-    - `sudo mount /mnt/share`
-7. Verify config persistence:
-    - OpenClaw config should be automatically available via symlink `~/.openclaw` -> `/mnt/share/openclaw`
-    - Configs survive this recovery process without manual intervention
+   ```bash
+   sudo rm -f /mnt/arrakis/hermes/disk/hermes.qcow2
+   ```
+3. Restart the service:
+   ```bash
+   sudo systemctl restart libvirt-guest-hermes
+   ```
+4. Find the IP from the router DHCP leases for hostname `hermes`, then SSH:
+   ```bash
+   ssh muad@<VM_IP>
+   ```
+5. Verify OpenClaw config persistence:
+   ```bash
+   ls -la ~/.openclaw
+   ```
 
 ## Useful commands
-- VM state: `sudo virsh domstate openclaw`
-- VM MAC: `sudo virsh domiflist openclaw`
-- Disk/ISO attachments: `sudo virsh domblklist openclaw`
-- IP via agent (if running): `sudo virsh domifaddr openclaw --source agent`
-- IP via ARP (host might miss due to macvtap): `sudo virsh domifaddr openclaw --source arp`
 
-## Notes
-- Cloud-init includes:
-   - Users: `root`, `muad`, `calvo` with SSH keys
-   - bootcmd: creates `/mnt/share` directory early
-   - Packages: `qemu-guest-agent`, `ca-certificates`, `curl`, `gnupg`, `nfs-common`, `build-essential`, `git`
-   - Mount: NFS `192.168.0.251:/mnt/arrakis/ix/openclaw/share` -> `/mnt/share` (with nofail for robustness, auto-mounted)
-   - runcmd: non-interactive apt operations, enable agent, SSH hardening, Node.js 24, Nix installer, `openclaw` npm install
-   - **Config persistence**: Creates `/mnt/share/openclaw` and symlinks `~/.openclaw` -> `/mnt/share/openclaw` for user `muad`
-- `openclaw` is installed globally for user `muad` in `~/.npm-global/bin/openclaw`
-- OpenClaw configuration is stored persistently in `/mnt/share/openclaw` (NFS) via the symlink
-- If guest agent is not responding but SSH works, you can enable it inside the VM:
-   - `sudo systemctl enable --now qemu-guest-agent`
-- Verification: `npm -g ls --depth=0` or `npm -g bin` to check installed packages
+- VM state: `sudo virsh domstate hermes`
+- VM interfaces: `sudo virsh domiflist hermes`
+- Disk/ISO attachments: `sudo virsh domblklist hermes`
+- IP via agent: `sudo virsh domifaddr hermes --source agent`
+- IP via ARP: `sudo virsh domifaddr hermes --source arp`
+
+## Cloud-init summary
+
+Cloud-init configures:
+
+- Users: `root`, `muad`, and `calvo` with SSH keys
+- Packages: `qemu-guest-agent`, `ca-certificates`, `curl`, `gnupg`,
+  `nfs-common`, `build-essential`, and `git`
+- NFS mount: `192.168.0.251:/mnt/arrakis/ix/hermes/share` -> `/mnt/share`
+- SSH hardening and `qemu-guest-agent`
+- Node.js 24 and global `openclaw` install for `muad`
+- Determinate Nix installer
+- OpenClaw persistence: `~/.openclaw` -> `/mnt/share/openclaw`

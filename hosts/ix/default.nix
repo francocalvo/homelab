@@ -52,7 +52,7 @@
     ./container-litellm.nix
 
     # VMs
-    ./vm-clawdbot.nix
+    ./vm-hermes.nix
   ];
 
   sops = {

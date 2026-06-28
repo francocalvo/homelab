@@ -1,4 +1,4 @@
-# OpenClaw VM - Ubuntu 24.04 with Node.js 24, NPM, and Nix
+# Hermes OpenClaw VM - Ubuntu 24.04 with Node.js 24, NPM, and Nix
 # Uses macvtap (direct mode) - VM gets IP on main network (192.168.0.x)
 # SSH: ssh root@<VM_IP> or ssh muad@<VM_IP>
 #
@@ -7,9 +7,9 @@
 #
 # Disk management: Uses Nix store for immutable base image with QCOW2 overlay for mutable state
 # - Base image: /nix/store/xxxx-ubuntu-noble-cloudimg/base.qcow2 (pinned, declarative)
-# - Overlay: /mnt/arrakis/openclaw/disk/openclaw.qcow2 (created automatically on nixos-rebuild switch)
+# - Overlay: /mnt/arrakis/hermes/disk/hermes.qcow2 (created automatically on nixos-rebuild switch)
 # - Update base: Change URL/hash in config, overlay auto-recreates
-# - Reset to pristine: rm /mnt/arrakis/openclaw/disk/openclaw.qcow2 && systemctl restart libvirt-guest-openclaw
+# - Reset to pristine: rm /mnt/arrakis/hermes/disk/hermes.qcow2 && systemctl restart libvirt-guest-hermes
 #
 # NOTE: To get the correct sha256 hash for the base image, run:
 #   nix-prefetch-url https://cloud-images.ubuntu.com/noble/20260108/noble-server-cloudimg-amd64.img
@@ -21,11 +21,13 @@
 }:
 let
   vmConfig = {
-    name = "openclaw";
+    name = "hermes";
     vcpus = 4;
     memory = 6144; # MB - balloon handles dynamic allocation
     diskSize = "50G";
-    dataPath = "/mnt/arrakis/openclaw";
+    dataPath = "/mnt/arrakis/hermes";
+    nfsShare = "192.168.0.251:/mnt/arrakis/ix/hermes/share";
+    openclawConfigDir = "/mnt/share/openclaw";
   };
 
   sshKeys = [
@@ -89,12 +91,12 @@ let
           - DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
           - DEBIAN_FRONTEND=noninteractive apt-get install -y nfs-common
           - mkdir -p /mnt/share
-          - grep -q '^192.168.0.251:/mnt/arrakis/ix/openclaw/share[[:space:]]\+/mnt/share[[:space:]]\+nfs' /etc/fstab || printf '%s\n' '192.168.0.251:/mnt/arrakis/ix/openclaw/share /mnt/share nfs defaults,_netdev,nofail 0 0' >> /etc/fstab
+          - grep -Fq '${vmConfig.nfsShare} /mnt/share nfs' /etc/fstab || printf '%s\n' '${vmConfig.nfsShare} /mnt/share nfs defaults,_netdev,nofail 0 0' >> /etc/fstab
           - mount -av || true
           # Wait for NFS mount to be ready, then fix ownership for muad
           - while ! mountpoint -q /mnt/share 2>/dev/null; do sleep 1; done
-          - mkdir -p /mnt/share/openclaw
-          - chown -R muad:muad /mnt/share/openclaw
+          - mkdir -p ${vmConfig.openclawConfigDir}
+          - chown -R muad:muad ${vmConfig.openclawConfigDir}
           - systemctl enable --now qemu-guest-agent || true
           - sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
           - systemctl restart ssh
@@ -104,10 +106,10 @@ let
           - sudo -H -u muad bash -c 'export PATH=$HOME/.npm-global/bin:$PATH && npm install -g openclaw || (echo "openclaw npm install failed (continuing)" >&2)'
           - curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm
           # Create OpenClaw persistent config directory on NFS share
-          - mkdir -p /mnt/share/openclaw
+          - mkdir -p ${vmConfig.openclawConfigDir}
           # Ensure OpenClaw config is symlinked to persistent share for muad user
           - sudo -H -u muad bash -c 'if [ -e "$HOME/.openclaw" ] && [ ! -L "$HOME/.openclaw" ]; then mv "$HOME/.openclaw" "$HOME/.openclaw.backup.$(date +%s)"; fi'
-          - sudo -H -u muad bash -c 'ln -sfn /mnt/share/openclaw "$HOME/.openclaw"'
+          - sudo -H -u muad bash -c 'ln -sfn ${vmConfig.openclawConfigDir} "$HOME/.openclaw"'
   '';
 
   cloudInitIso =
