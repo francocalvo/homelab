@@ -28,6 +28,7 @@ let
     dataPath = "/mnt/arrakis/hermes";
     nfsShare = "192.168.0.251:/mnt/arrakis/ix/hermes/share";
     hermesHome = "/mnt/share/hermes";
+    macAddress = "52:54:00:70:e6:8b";
   };
 
   sshKeys = [
@@ -63,6 +64,18 @@ let
   metaData = pkgs.writeText "meta-data" ''
     instance-id: ${vmConfig.name}
     local-hostname: ${vmConfig.name}
+  '';
+
+  networkConfig = pkgs.writeText "network-config" ''
+    version: 2
+    ethernets:
+      enp1s0:
+        match:
+          macaddress: "${vmConfig.macAddress}"
+        set-name: enp1s0
+        dhcp4: true
+        dhcp6: false
+        optional: true
   '';
 
   userData = pkgs.writeText "user-data" ''
@@ -117,6 +130,7 @@ let
         mkdir -p cidata
         cp ${userData} cidata/user-data
         cp ${metaData} cidata/meta-data
+        cp ${networkConfig} cidata/network-config
         genisoimage -output $out -volid cidata -joliet -rock cidata/
       '';
 
@@ -156,6 +170,7 @@ let
           <readonly/>
         </disk>
         <interface type='direct'>
+          <mac address='${vmConfig.macAddress}'/>
           <source dev='enp3s0' mode='bridge'/>
           <model type='virtio'/>
         </interface>
