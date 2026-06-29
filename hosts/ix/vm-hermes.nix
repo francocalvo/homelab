@@ -253,7 +253,27 @@ in
         old_hash=$(${pkgs.coreutils}/bin/cat "$xml_hash_file")
       fi
       if ! ${pkgs.libvirt}/bin/virsh dominfo ${vmConfig.name} >/dev/null 2>&1 || [ "$new_hash" != "$old_hash" ]; then
-        ${pkgs.libvirt}/bin/virsh define ${vmXmlFile}
+        define_xml="$(${pkgs.coreutils}/bin/mktemp -p "${vmConfig.dataPath}" ".${vmConfig.name}.xml.XXXXXX")"
+        ${pkgs.coreutils}/bin/cp ${vmXmlFile} "$define_xml"
+
+        # Preserve the UUID of an already-known domain. Without this, libvirt
+        # treats XML without a <uuid> as a new domain and refuses to define it
+        # when a domain with the same name already exists.
+        if existing_uuid="$(${pkgs.libvirt}/bin/virsh domuuid ${vmConfig.name} 2>/dev/null)"; then
+          xml_with_uuid="$(${pkgs.coreutils}/bin/mktemp -p "${vmConfig.dataPath}" ".${vmConfig.name}.xml.XXXXXX")"
+          ${pkgs.gawk}/bin/awk -v uuid="$existing_uuid" '
+            /<name>${vmConfig.name}<\/name>/ {
+              print
+              print "      <uuid>" uuid "</uuid>"
+              next
+            }
+            { print }
+          ' ${vmXmlFile} > "$xml_with_uuid"
+          ${pkgs.coreutils}/bin/mv -f "$xml_with_uuid" "$define_xml"
+        fi
+
+        ${pkgs.libvirt}/bin/virsh define "$define_xml"
+        ${pkgs.coreutils}/bin/rm -f "$define_xml"
         echo "$new_hash" > "$xml_hash_file"
       fi
       if ! ${pkgs.gnugrep}/bin/grep -q "^${vmConfig.name}$" <(${pkgs.libvirt}/bin/virsh list --name); then
