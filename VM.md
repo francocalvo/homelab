@@ -1,7 +1,7 @@
-# VM Notes: Hermes (OpenClaw)
+# VM Notes: Hermes Agent
 
-Hermes is the libvirt VM that runs the OpenClaw personal AI assistant gateway on
-the `ix` host.
+Hermes is the libvirt VM that runs the NousResearch Hermes Agent harness on the
+`ix` host.
 
 ## Current status
 
@@ -39,40 +39,66 @@ To get the hash for a new Ubuntu cloud image:
 nix-prefetch-url https://cloud-images.ubuntu.com/noble/20260108/noble-server-cloudimg-amd64.img
 ```
 
-## OpenClaw persistence
+## Hermes Agent persistence
 
 - The VM mounts the NAS export
   `192.168.0.251:/mnt/arrakis/ix/hermes/share` at `/mnt/share`.
-- OpenClaw state is stored under `/mnt/share/openclaw`.
-- The `muad` user's `~/.openclaw` is symlinked to `/mnt/share/openclaw` during
+- Hermes Agent state is stored under `/mnt/share/hermes`.
+- The `muad` user's `~/.hermes` is symlinked to `/mnt/share/hermes` during
   cloud-init.
 - The directory is owned by `muad:muad` after the NFS mount becomes available.
 
 Useful checks inside the VM:
 
 ```bash
-ls -la ~/.openclaw
-ls -ld /mnt/share/openclaw
-npm -g ls --depth=0
+hostname
+mountpoint /mnt/share
+ls -la ~/.hermes
+readlink -f ~/.hermes
+~/.local/bin/hermes doctor
 ```
 
-If OpenClaw gets `EACCES` errors writing to `~/.openclaw`, fix ownership:
+If Hermes gets permission errors writing to `~/.hermes`, fix ownership:
 
 ```bash
-sudo chown -R muad:muad /mnt/share/openclaw
+sudo chown -R muad:muad /mnt/share/hermes
 ```
 
-## Fresh deployment from the old `openclaw` VM
+## Fresh deployment from the old OpenClaw VM
 
-This configuration intentionally creates a new Hermes VM and storage root. To
-start from a clean OpenClaw context, remove the old VM and old OpenClaw storage
-instead of migrating state:
+This configuration intentionally creates a new Hermes Agent VM and storage root.
+To start from a clean Hermes context, remove the old OpenClaw VM/storage and any
+state created by the mistaken OpenClaw-on-Hermes deployment:
 
 ```bash
 sudo virsh shutdown openclaw || true
 sudo virsh undefine openclaw || true
+sudo virsh destroy hermes || true
+sudo virsh undefine hermes || true
 sudo rm -rf /mnt/arrakis/openclaw
-sudo rm -rf /mnt/arrakis/hermes/share/openclaw
+sudo rm -rf /mnt/arrakis/hermes
+```
+
+After `nixos-rebuild switch`, SSH into the new VM and run the interactive Hermes
+setup:
+
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+hermes setup
+hermes model
+hermes gateway setup
+```
+
+Start the gateway manually while testing:
+
+```bash
+hermes gateway
+```
+
+Install the gateway as a service after the setup works:
+
+```bash
+hermes gateway install
 ```
 
 ## Recovery plan
@@ -93,9 +119,9 @@ sudo rm -rf /mnt/arrakis/hermes/share/openclaw
    ```bash
    ssh muad@<VM_IP>
    ```
-5. Verify OpenClaw config persistence:
+5. Verify Hermes Agent persistence:
    ```bash
-   ls -la ~/.openclaw
+   ls -la ~/.hermes
    ```
 
 ## Useful commands
@@ -112,9 +138,8 @@ Cloud-init configures:
 
 - Users: `root`, `muad`, and `calvo` with SSH keys
 - Packages: `qemu-guest-agent`, `ca-certificates`, `curl`, `gnupg`,
-  `nfs-common`, `build-essential`, and `git`
+  `nfs-common`, `build-essential`, `git`, `ffmpeg`, and `ripgrep`
 - NFS mount: `192.168.0.251:/mnt/arrakis/ix/hermes/share` -> `/mnt/share`
 - SSH hardening and `qemu-guest-agent`
-- Node.js 24 and global `openclaw` install for `muad`
-- Determinate Nix installer
-- OpenClaw persistence: `~/.openclaw` -> `/mnt/share/openclaw`
+- Hermes Agent installer with `--skip-setup --skip-browser`
+- Hermes Agent persistence: `~/.hermes` -> `/mnt/share/hermes`

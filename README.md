@@ -17,7 +17,7 @@ Mini PC running media and cloud services:
 - **Jellyfin**: Media streaming server
 - **Nextcloud**: Personal cloud platform with Redis, PostgreSQL, and supporting
   services
-- **Hermes**: OpenClaw personal AI assistant gateway in a libvirt VM
+- **Hermes Agent**: NousResearch Hermes Agent harness in a libvirt VM
 
 ### kaitain (aarch64-linux)
 

@@ -1,8 +1,8 @@
-# Hermes OpenClaw VM - Ubuntu 24.04 with Node.js 24, NPM, and Nix
+# Hermes Agent VM - Ubuntu 24.04 with the NousResearch Hermes Agent harness
 # Uses macvtap (direct mode) - VM gets IP on main network (192.168.0.x)
 # SSH: ssh root@<VM_IP> or ssh muad@<VM_IP>
 #
-# Persistent config: OpenClaw config directory ~/.openclaw is symlinked to /mnt/share/openclaw
+# Persistent state: Hermes Agent state directory ~/.hermes is symlinked to /mnt/share/hermes
 # This survives VM re-provisioning (overlay recreation).
 #
 # Disk management: Uses Nix store for immutable base image with QCOW2 overlay for mutable state
@@ -23,11 +23,11 @@ let
   vmConfig = {
     name = "hermes";
     vcpus = 4;
-    memory = 6144; # MB - balloon handles dynamic allocation
+    memory = 3072; # MB - keep headroom for the rest of ix
     diskSize = "50G";
     dataPath = "/mnt/arrakis/hermes";
     nfsShare = "192.168.0.251:/mnt/arrakis/ix/hermes/share";
-    openclawConfigDir = "/mnt/share/openclaw";
+    hermesHome = "/mnt/share/hermes";
   };
 
   sshKeys = [
@@ -85,31 +85,27 @@ let
     ${lib.concatMapStrings (key: "          - ${key}\n") sshKeys}
         bootcmd:
           - mkdir -p /mnt/share
-        packages: [qemu-guest-agent, ca-certificates, curl, gnupg, nfs-common, build-essential, git]
+        packages: [qemu-guest-agent, ca-certificates, curl, gnupg, nfs-common, build-essential, git, ffmpeg, ripgrep]
         runcmd:
           - DEBIAN_FRONTEND=noninteractive apt-get update
           - DEBIAN_FRONTEND=noninteractive apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
-          - DEBIAN_FRONTEND=noninteractive apt-get install -y nfs-common
+          - DEBIAN_FRONTEND=noninteractive apt-get install -y nfs-common ffmpeg ripgrep
           - mkdir -p /mnt/share
           - grep -Fq '${vmConfig.nfsShare} /mnt/share nfs' /etc/fstab || printf '%s\n' '${vmConfig.nfsShare} /mnt/share nfs defaults,_netdev,nofail 0 0' >> /etc/fstab
           - mount -av || true
           # Wait for NFS mount to be ready, then fix ownership for muad
           - while ! mountpoint -q /mnt/share 2>/dev/null; do sleep 1; done
-          - mkdir -p ${vmConfig.openclawConfigDir}
-          - chown -R muad:muad ${vmConfig.openclawConfigDir}
+          - mkdir -p ${vmConfig.hermesHome}
+          - chown -R muad:muad ${vmConfig.hermesHome}
           - systemctl enable --now qemu-guest-agent || true
           - sed -i 's/^#*PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
           - systemctl restart ssh
-          - curl -fsSL https://deb.nodesource.com/setup_24.x | bash -
-          - DEBIAN_FRONTEND=noninteractive apt-get install -y nodejs
-          - sudo -H -u muad bash -c 'mkdir -p $HOME/.npm-global && npm config set prefix $HOME/.npm-global && echo "export PATH=\$HOME/.npm-global/bin:\$PATH" >> $HOME/.bashrc'
-          - sudo -H -u muad bash -c 'export PATH=$HOME/.npm-global/bin:$PATH && npm install -g openclaw || (echo "openclaw npm install failed (continuing)" >&2)'
-          - curl --proto '=https' --tlsv1.2 -sSf -L https://install.determinate.systems/nix | sh -s -- install --no-confirm
-          # Create OpenClaw persistent config directory on NFS share
-          - mkdir -p ${vmConfig.openclawConfigDir}
-          # Ensure OpenClaw config is symlinked to persistent share for muad user
-          - sudo -H -u muad bash -c 'if [ -e "$HOME/.openclaw" ] && [ ! -L "$HOME/.openclaw" ]; then mv "$HOME/.openclaw" "$HOME/.openclaw.backup.$(date +%s)"; fi'
-          - sudo -H -u muad bash -c 'ln -sfn ${vmConfig.openclawConfigDir} "$HOME/.openclaw"'
+          # Ensure Hermes Agent state is symlinked to the persistent share for muad.
+          - sudo -H -u muad bash -c 'if [ -e "$HOME/.hermes" ] && [ ! -L "$HOME/.hermes" ]; then mv "$HOME/.hermes" "$HOME/.hermes.backup.$(date +%s)"; fi'
+          - sudo -H -u muad bash -c 'ln -sfn ${vmConfig.hermesHome} "$HOME/.hermes"'
+          - sudo -H -u muad bash -c 'mkdir -p "$HOME/.local/bin" && grep -qxF "export PATH=\$HOME/.local/bin:\$PATH" "$HOME/.bashrc" || printf "%s\n" "export PATH=\$HOME/.local/bin:\$PATH" >> "$HOME/.bashrc"'
+          # Install Hermes Agent non-interactively; run `hermes setup` after first SSH login.
+          - sudo -H -u muad bash -lc 'export HERMES_HOME="$HOME/.hermes" PATH="$HOME/.local/bin:$PATH"; curl -fsSL https://hermes-agent.nousresearch.com/install.sh | bash -s -- --skip-setup --skip-browser'
   '';
 
   cloudInitIso =
