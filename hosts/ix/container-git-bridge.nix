@@ -84,7 +84,7 @@ let
   '';
 
   entrypoint = pkgs.writeShellScript "entrypoint.sh" ''
-    export PATH="${pkgs.coreutils}/bin:${pkgs.git}/bin:${pkgs.nodejs_20}/bin:$PATH"
+    export PATH="${pkgs.coreutils}/bin:${pkgs.git}/bin:${pkgs.nodejs_22}/bin:$PATH"
     mkdir -p /root /var/olgitbridge /data /tmp
     git config --global user.email "gitbridge@overleaf"
     git config --global user.name "Git Bridge"
@@ -96,7 +96,7 @@ let
     tag = "local";
     contents = [
       gitBridgeApp
-      pkgs.nodejs_20
+      pkgs.nodejs_22
       pkgs.git
       pkgs.cacert
       pkgs.bash

@@ -8,9 +8,39 @@ A multi-host homelab setup that is completely reproducible using NixOS.
 - **Podman**: Container orchestration via OCI containers
 - **Sops**: Encrypted secrets management with age keys
 
+### Network topology
+
+**The reverse proxy and the services live on two different boxes.** This trips
+people (and agents) up, so to be explicit:
+
+| Box | IP | Role |
+| --- | --- | --- |
+| `kaitain` | `192.168.0.100` | Reverse proxy only (SWAG/nginx, TLS termination on 443/80) |
+| `ix` | `192.168.0.4` | Every actual service — containers listen on their own ports here |
+
+Every `*.calvo.dev` name resolves to **kaitain** (`192.168.0.100`), which
+terminates TLS and proxies back to **ix** (`192.168.0.4`) on the service's port.
+The upstream address is hard-coded as `ixHost` in
+`hosts/kaitain/container-swag.nix`.
+
+Consequences worth knowing before you debug something:
+
+- `https://<svc>.calvo.dev` goes through the proxy; `http://192.168.0.4:<port>`
+  hits the service directly. Use the direct address to isolate whether a problem
+  is the service or the proxy.
+- A hostname will **not** answer on the service's own port —
+  `litellm.calvo.dev:4000` is not a thing. The proxy listens on 443; only ix
+  listens on 4000.
+- The `networking.hosts` entries in `hosts/ix/default.nix` deliberately point
+  `*.calvo.dev` at `192.168.0.100`, i.e. ix reaches its own services by looping
+  out through the proxy. That is intentional, not a stale entry.
+- Only `overleaf` currently has a Nix-generated proxy-conf. The rest live by hand
+  in `/mnt/arrakis/swag` on kaitain (see the Roadmap item about Nginx config
+  generators).
+
 ## Hosts
 
-### ix (x86_64-linux)
+### ix (x86_64-linux) — `192.168.0.4`
 
 Mini PC running media and cloud services:
 
@@ -18,8 +48,15 @@ Mini PC running media and cloud services:
 - **Nextcloud**: Personal cloud platform with Redis, PostgreSQL, and supporting
   services
 - **Hermes Agent**: NousResearch Hermes Agent harness in a libvirt VM
+- **LiteLLM**: OpenAI-compatible AI gateway on port 4000, backed by Postgres.
+  Both its `config.yaml` and `.env` are sops secrets in `secrets/ix.yaml`
+  (`litellm_config` / `litellm_env`), rendered to `/mnt/arrakis/litellm/`.
+  Note `store_model_in_db: true` — models can also exist in Postgres without
+  appearing in `config.yaml`, so check `GET /model/info` (not just
+  `/v1/models`, which collapses duplicate `model_name`s) to see what is really
+  registered.
 
-### kaitain (aarch64-linux)
+### kaitain (aarch64-linux) — `192.168.0.100`
 
 Raspberry Pi 4 running network services:
 

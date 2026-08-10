@@ -12,7 +12,7 @@
 # - Reset to pristine: rm /mnt/arrakis/hermes/disk/hermes.qcow2 && systemctl restart libvirt-guest-hermes
 #
 # NOTE: To get the correct sha256 hash for the base image, run:
-#   nix-prefetch-url https://cloud-images.ubuntu.com/noble/20260108/noble-server-cloudimg-amd64.img
+#   nix-prefetch-url https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
 {
   config,
   lib,
@@ -42,9 +42,9 @@ let
     name = "ubuntu-noble-cloudimg";
 
     src = pkgs.fetchurl {
-      url = "https://cloud-images.ubuntu.com/noble/20260108/noble-server-cloudimg-amd64.img";
-      # Run: nix-prefetch-url https://cloud-images.ubuntu.com/noble/20260108/noble-server-cloudimg-amd64.img
-      sha256 = "sha256-AHhsCTan3ZGmsHlBymC7VmUpdeDnL52s9zyIetpCCWY=";
+      url = "https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img";
+      # Run: nix-prefetch-url https://cloud-images.ubuntu.com/noble/current/noble-server-cloudimg-amd64.img
+      sha256 = "sha256-BTOwZVwy5osx15Ls1sz8qVq9vFNsREaHT+BRO9QUD/4=";
     };
 
     nativeBuildInputs = [ pkgs.qemu ];
