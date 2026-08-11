@@ -56,6 +56,12 @@ Mini PC running media and cloud services:
   `/v1/models`, which collapses duplicate `model_name`s) to see what is really
   registered.
 
+### caladan (x86_64-linux)
+
+Mini PC for local AI workflows. The initial configuration provides a hardened
+SSH service, Tailscale connectivity, and a Podman runtime; Hermes workloads
+will be added separately.
+
 ### kaitain (aarch64-linux) — `192.168.0.100`
 
 Raspberry Pi 4 running network services:
@@ -71,6 +77,7 @@ Raspberry Pi 4 running network services:
 ├── flake.nix           # Main Nix flake configuration
 ├── hosts/              # Host-specific configurations
 │   ├── ix/             # Mini PC configuration
+│   ├── caladan/        # AI workflow Mini PC configuration
 │   └── kaitain/        # Raspberry Pi configuration
 ├── lib/                # Custom library functions
 ├── modules/            # Reusable NixOS modules
@@ -84,6 +91,28 @@ Build and deploy a specific host from within the host:
 
 ```bash
 nixos-rebuild switch --flake .#<hostname>
+```
+
+### Initial Caladan installation
+
+The bootstrap hardware configuration expects a UEFI system with an ext4 root
+partition labeled `nixos` and a vfat EFI partition labeled `boot`. After
+mounting both partitions below `/mnt`, generate the machine-specific hardware
+configuration from the NixOS installer:
+
+```bash
+sudo nixos-generate-config --root /mnt
+cp /mnt/etc/nixos/hardware-configuration.nix hosts/caladan/hardware-configuration.nix
+sudo nixos-install --root /mnt --flake .#caladan
+```
+
+Commit the generated hardware configuration after the installation succeeds.
+
+Authenticate Caladan with the tailnet after the first boot:
+
+```bash
+sudo tailscale up
+tailscale status
 ```
 
 Update flake inputs:
