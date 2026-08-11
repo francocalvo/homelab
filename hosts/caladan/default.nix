@@ -64,5 +64,10 @@
     yq-go
   ];
 
+  zramSwap = {
+    enable = true;
+    memoryPercent = 25;
+  };
+
   system.stateVersion = "26.05";
 }
