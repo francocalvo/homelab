@@ -5,8 +5,14 @@
 #   litellm_config  → /mnt/arrakis/litellm/config.yaml
 #   litellm_env     → /mnt/arrakis/litellm/.env
 #
+# The `chatgpt/*` models authenticate via an OAuth device-code flow instead of an
+# API key. LiteLLM writes (and rewrites, on every token refresh) auth.json into
+# $CHATGPT_TOKEN_DIR, so that path is a writable persistent bind mount — otherwise
+# the one-time browser login has to be redone every container recreate.
+#
 # References:
 #   https://docs.litellm.ai/docs/proxy/docker_quick_start
+#   https://docs.litellm.ai/docs/providers/chatgpt
 #   https://github.com/BerriAI/litellm
 {
   pkgs,
@@ -59,11 +65,17 @@
   ## LiteLLM Proxy Container
   virtualisation.oci-containers.containers."litellm" = {
     image = "ghcr.io/berriai/litellm:main-latest";
+    environment = {
+      # Set explicitly so token storage does not depend on the container's $HOME.
+      CHATGPT_TOKEN_DIR = "/app/chatgpt-auth";
+    };
     environmentFiles = [
       "/mnt/arrakis/litellm/.env"
     ];
     volumes = [
       "/mnt/arrakis/litellm/config.yaml:/app/config.yaml:ro,z"
+      # rw + persistent: holds the ChatGPT OAuth auth.json across restarts.
+      "/mnt/arrakis/litellm/chatgpt-auth:/app/chatgpt-auth:z"
     ];
     dependsOn = [
       "litellm-db"
@@ -86,6 +98,12 @@
   systemd.services."podman-litellm" = {
     serviceConfig = {
       Restart = lib.mkOverride 90 "always";
+      # Create the ChatGPT token dir here rather than via tmpfiles: this unit
+      # already orders itself after the /mnt/arrakis mount, so the directory
+      # can never land on the bare mountpoint.
+      ExecStartPre = [
+        "${pkgs.coreutils}/bin/mkdir -p /mnt/arrakis/litellm/chatgpt-auth"
+      ];
     };
     unitConfig.RequiresMountsFor = "/mnt/arrakis";
     after = [
