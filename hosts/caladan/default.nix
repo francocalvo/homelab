@@ -27,6 +27,10 @@
         PermitRootLogin = "no";
       };
     };
+    tailscale = {
+      enable = true;
+      openFirewall = true;
+    };
   };
 
   # Keep the container runtime ready without deploying workloads yet.
@@ -47,8 +51,17 @@
   };
 
   environment.systemPackages = with pkgs; [
+    age
+    fd
+    fzf
+    jq
+    lsof
+    ncdu
+    ripgrep
+    rsync
     sops
     tmux
+    yq-go
   ];
 
   system.stateVersion = "26.05";

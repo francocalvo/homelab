@@ -21,7 +21,8 @@ Mini PC running media and cloud services:
 ### caladan (x86_64-linux)
 
 Mini PC for local AI workflows. The initial configuration provides a hardened
-SSH service and Podman runtime; Hermes workloads will be added separately.
+SSH service, Tailscale connectivity, and a Podman runtime; Hermes workloads
+will be added separately.
 
 ### kaitain (aarch64-linux)
 
@@ -68,6 +69,13 @@ sudo nixos-install --root /mnt --flake .#caladan
 ```
 
 Commit the generated hardware configuration after the installation succeeds.
+
+Authenticate Caladan with the tailnet after the first boot:
+
+```bash
+sudo tailscale up
+tailscale status
+```
 
 Update flake inputs:
 
