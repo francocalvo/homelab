@@ -72,6 +72,7 @@
       nixosModules = mapModulesRec ./modules import;
 
       nixosConfigurations = {
+        caladan = lib.my.mkHost ./hosts/caladan { system = "x86_64-linux"; };
         ix = lib.my.mkHost ./hosts/ix { system = "x86_64-linux"; };
         kaitain = nixos-raspberrypi.lib.nixosSystem {
           specialArgs = inputs;
