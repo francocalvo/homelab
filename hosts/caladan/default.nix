@@ -56,6 +56,7 @@
     templates."hermes.env" = {
       content = ''
         LITELLM_API_KEY=${config.sops.placeholder.LITELLM_API_KEY}
+        HERMES_CUSTOM_LITELLM_CALVO_DEV_API_KEY=${config.sops.placeholder.LITELLM_API_KEY}
       '';
       path = "/home/muad/.hermes/.env";
       owner = "muad";
