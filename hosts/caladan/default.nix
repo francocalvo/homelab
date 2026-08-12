@@ -1,6 +1,10 @@
 # Caladan - x86 Mini PC
 # Local compute node for AI workflows
-{ pkgs, ... }:
+{
+  inputs,
+  pkgs,
+  ...
+}:
 
 {
   imports = [
@@ -62,6 +66,7 @@
     sops
     tmux
     yq-go
+    inputs.hermes-agent.packages.${pkgs.system}.default
   ];
 
   zramSwap = {

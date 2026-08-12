@@ -59,8 +59,8 @@ Mini PC running media and cloud services:
 ### caladan (x86_64-linux)
 
 Mini PC for local AI workflows. The initial configuration provides a hardened
-SSH service, Tailscale connectivity, and a Podman runtime; Hermes workloads
-will be added separately.
+SSH service, Tailscale connectivity, a Podman runtime, and the Hermes Agent CLI.
+Hermes service configuration and provider credentials will be added separately.
 
 ### kaitain (aarch64-linux) — `192.168.0.100`
 
