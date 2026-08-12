@@ -1,3 +1,5 @@
 llm/
+.DS_Store
+learning/
 result
 result-*
