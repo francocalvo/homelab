@@ -38,25 +38,14 @@
     };
   };
 
-  # Secrets: LITELLM_API_KEY is decrypted from secrets/caladan.yaml at
-  # activation and rendered directly to ~/.hermes/.env (dotenv format, which
-  # Hermes loads at startup via load_hermes_dotenv). This mirrors the ix
-  # convention of writing each secret to the path its service reads.
+  # hermes_end is a complete dotenv file decrypted directly to the location
+  # Hermes loads at startup via load_hermes_dotenv.
   sops = {
     defaultSopsFormat = "yaml";
     defaultSopsFile = ../../secrets/caladan.yaml;
     age.keyFile = "/home/muad/.config/sops/age/keys.txt";
 
-    secrets.LITELLM_API_KEY = {
-      owner = "muad";
-      group = "muad";
-      mode = "0600";
-    };
-
-    templates."hermes.env" = {
-      content = ''
-        LITELLM_API_KEY=${config.sops.placeholder.LITELLM_API_KEY}
-      '';
+    secrets.hermes_end = {
       path = "/home/muad/.hermes/.env";
       owner = "muad";
       group = "muad";
