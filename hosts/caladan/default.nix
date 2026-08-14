@@ -38,14 +38,14 @@
     };
   };
 
-  # hermes_end is a complete dotenv file decrypted directly to the location
+  # hermes_env is a complete dotenv file decrypted directly to the location
   # Hermes loads at startup via load_hermes_dotenv.
   sops = {
     defaultSopsFormat = "yaml";
     defaultSopsFile = ../../secrets/caladan.yaml;
     age.keyFile = "/home/muad/.config/sops/age/keys.txt";
 
-    secrets.hermes_end = {
+    secrets.hermes_env = {
       path = "/home/muad/.hermes/.env";
       owner = "muad";
       group = "muad";
