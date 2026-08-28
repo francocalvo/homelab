@@ -87,10 +87,9 @@
         mode = "0400";
       };
 
-      litellm_config = {
-        path = "/mnt/arrakis/litellm/config.yaml";
-      };
-
+      # No litellm_config secret: the proxy's config.yaml is generated from
+      # hosts/ix/litellm/models.nix and mounted from the nix store. Only the
+      # provider keys are still secret, and they live in litellm_env below.
       litellm_env = {
         path = "/mnt/arrakis/litellm/.env";
       };

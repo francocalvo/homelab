@@ -49,8 +49,9 @@ Mini PC running media and cloud services:
   services
 - **Hermes Agent**: NousResearch Hermes Agent harness in a libvirt VM
 - **LiteLLM**: OpenAI-compatible AI gateway on port 4000, backed by Postgres.
-  Both its `config.yaml` and `.env` are sops secrets in `secrets/ix.yaml`
-  (`litellm_config` / `litellm_env`), rendered to `/mnt/arrakis/litellm/`.
+  Its `config.yaml` is generated from `hosts/ix/litellm/models.nix` and mounted
+  from the nix store; only `.env` is a sops secret (`litellm_env` in
+  `secrets/ix.yaml`, rendered to `/mnt/arrakis/litellm/`).
   Note `store_model_in_db: true` — models can also exist in Postgres without
   appearing in `config.yaml`, so check `GET /model/info` (not just
   `/v1/models`, which collapses duplicate `model_name`s) to see what is really
