@@ -35,7 +35,10 @@ let
   #   commandcode  - honours it but validates the value, accepting only
   #                  low|medium|high|xhigh|max; "none" returns a 400 from them
   #   zen / umans  - accept the param without error but never report reasoning
-  #                  tokens in usage, so whether it does anything is unverified
+  #                  tokens in usage, so whether it does anything is unverified.
+  #                  ONE exception: zen's glm-5.3-flash does report them, and
+  #                  rejects any rung outside low|high|max with a 400 that names
+  #                  the accepted set (verified 2026-08-28)
   #   muse         - minimal|low|medium|high|xhigh; no "none", no "max"
   #
   # `upstream` is always passed explicitly and never derived from the model_name:
@@ -152,6 +155,40 @@ in
     reasoning = true;
     vision = false;
     schema = true;
+  }))
+
+  # Added 2026-08-28. Nearly 19x cheaper on input than glm-5.2 above and the only
+  # zen entry here with working vision, so it is the default choice for anything
+  # image-bearing on this proxy.
+  #
+  # Every flag below was smoke-tested on chat/completions (the route this proxy
+  # uses), not taken from models.dev, because that is exactly where zen's shim has
+  # lied before — see muse-spark further down:
+  #   vision - REAL here. Sent a 320x240 photo as a base64 data URL and got back
+  #            "A black Labrador puppy is sitting on a wooden floor", which is the
+  #            picture. Same request shape returns an empty message on muse-spark.
+  #   schema - response_format json_schema (strict) is accepted and ignored; the
+  #            model answered in prose. models.dev claims structured_output true,
+  #            and it may well be true on zen's /responses route, but not here.
+  # Tool calling works (proper tool_calls with parsed arguments).
+  #
+  # models.dev names this model "GLM-5.3-Flash (2x usage)": requests count DOUBLE
+  # against the GO plan's request allowance. Cheap per token, twice as expensive
+  # per call against the quota.
+  (zen "glm-5.3-flash" "glm-5.3-flash" (chatInfo {
+    # models.dev limit.context. OpenRouter advertises 1310720 for the same model,
+    # but zen's ceiling is what governs on this route.
+    maxIn = 1000000;
+    maxOut = 131072;
+    # $0.075 / $0.25 / $0.015 per 1M. models.dev (opencode-go) and OpenRouter's
+    # undiscounted z-ai/glm-5.3-flash rate agree to the digit, which is why the
+    # cc- twin below carries identical numbers.
+    inCost = 0.000000075;
+    outCost = 0.00000025;
+    cacheRead = 0.000000015;
+    reasoning = true;
+    vision = true;
+    schema = false;
   }))
 
   # Corrected 2026-08-19. `pro` had been 0.435/0.87/0.003625, matching neither
@@ -385,6 +422,36 @@ in
     schema = true;
   }))
 
+  # Added 2026-08-28, same upstream model as `glm-5.3-flash` (zen) above.
+  #
+  # NOTE THE SLUG. Command Code's GLM entries are `zai-org/GLM-<v>` (capitalised,
+  # zai-org), but this one is `z-ai/glm-5.3-flash` — lowercase, different vendor
+  # segment, matching OpenRouter's id rather than its own siblings. Verified
+  # 2026-08-28 against GET /provider/v1/models; do not "fix" it to zai-org/GLM-5.3-Flash.
+  #
+  # Flags smoke-tested on this route 2026-08-28, same probes as the zen twin:
+  # vision correctly described the test photo; tool calling returned proper
+  # tool_calls. schema is false for a different reason than zen's — Command Code
+  # returns valid JSON but ignores the supplied json_schema, answering with an
+  # invented {"answer": "..."} envelope. That is worse than zen's prose: a client
+  # doing json.loads() succeeds and then finds none of its fields.
+  (cc "cc-glm-5.3-flash" "z-ai/glm-5.3-flash" (chatInfo {
+    # Command Code's own context_length, which is higher than zen's ceiling for
+    # the same model.
+    maxIn = 1048576;
+    # OpenRouter top_provider.max_completion_tokens.
+    maxOut = 131072;
+    # $0.075 / $0.25 / $0.015 per 1M, OpenRouter's undiscounted rate as per the
+    # block header. Identical to models.dev's opencode-go figure, so unlike most
+    # of this block there is no gap between what we report and the market rate.
+    inCost = 0.000000075;
+    outCost = 0.00000025;
+    cacheRead = 0.000000015;
+    reasoning = true;
+    vision = true;
+    schema = false;
+  }))
+
   (cc "cc-deepseek-v4-pro" "deepseek/deepseek-v4-pro" (chatInfo {
     maxIn = 1000000;
     maxOut = 384000;
@@ -593,6 +660,21 @@ in
     # zen accepts reasoning_effort without error but never reports reasoning
     # tokens in usage, so the ladder is unverifiable from outside. Not guessed.
     "glm-5.2".efforts = null;
+
+    # The exception: this one DOES report reasoning tokens, and names its own
+    # ladder in the rejection. medium/xhigh/none/minimal all 400 with
+    # "[1210] This model always engages in thinking and cannot be disabled;
+    # please use low, high, or max" — note that low still ran 7 reasoning tokens,
+    # so "low" is the floor, not an off switch.
+    "glm-5.3-flash" = {
+      efforts = [ "low" "high" "max" ];
+      notes = [
+        "Counts DOUBLE against the opencode GO request allowance (models.dev names it \"GLM-5.3-Flash (2x usage)\"), despite being the cheapest per-token model on this proxy after muse-spark."
+        "Rejects medium and xhigh with a 400 — unlike every other zen model here, which swallows any effort value. Send only low, high or max."
+        "Vision works on chat/completions (verified with a photo), but json_schema is accepted and ignored, so structured output silently returns prose."
+      ];
+    };
+
     "deepseek-v4-pro".efforts = null;
     "deepseek-v4-flash".efforts = null;
     "mimo-v2.5".efforts = null;
@@ -633,6 +715,19 @@ in
 
     # Command Code validates the value and rejects "none" with a 400.
     "cc-glm-5.2".efforts = [ "low" "medium" "high" "xhigh" "max" ];
+
+    # Command Code's gateway validates against its own ladder before the request
+    # reaches Z.ai, so medium and xhigh are accepted here even though the same
+    # model rejects them via zen. Reasoning tokens confirm they do something
+    # (0 at low, 468 at max on an identical prompt), but the middle rungs did not
+    # come out monotonic in one sample — do not read the ladder as a dial.
+    "cc-glm-5.3-flash" = {
+      efforts = [ "low" "medium" "high" "xhigh" "max" ];
+      notes = [
+        "json_schema is ignored, but unlike most models here the reply is still valid JSON — an invented {\"answer\": \"...\"} envelope. A client that only checks json.loads() will not notice its schema was dropped."
+        "Upstream slug is z-ai/glm-5.3-flash, not zai-org/GLM-5.3-Flash like the other Command Code GLM entries."
+      ];
+    };
     "cc-deepseek-v4-pro".efforts = [ "low" "medium" "high" "xhigh" "max" ];
     "cc-deepseek-v4-flash".efforts = [ "low" "medium" "high" "xhigh" "max" ];
     "cc-gemini-3.7-flash".efforts = [ "low" "medium" "high" "xhigh" "max" ];
