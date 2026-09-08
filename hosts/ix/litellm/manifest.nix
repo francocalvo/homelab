@@ -124,6 +124,7 @@ let
       "A model with no reasoning_options entry has an unverified ladder. Absence means unknown, not unsupported."
       "cost is per 1,000,000 tokens in USD and reflects what we believe the traffic is worth, which for the cc-* models is deliberately the undiscounted market rate rather than the invoice Command Code sends."
       "Do not read /v1/models for metadata: it returns names only, with a hardcoded created timestamp and owned_by 'openai' for every model regardless of provider."
+      "A `hyper-*-dft` id is the same upstream model as its `hyper-*` primary, served on a second prepaid Hyper account. The pair is deliberately identical in limits, cost and capabilities. Prefer the primary: the proxy already falls back to the -dft twin automatically when the primary's balance is exhausted, so naming the twin directly gains nothing and gives up that failover. It is listed so the spillover capacity is visible rather than hidden."
     ];
 
     models = lib.listToAttrs (

@@ -7,8 +7,29 @@
 # copy of the model list.
 { lib }:
 
+let
+  models = import ./models.nix { inherit lib; };
+in
+
 {
-  model_list = (import ./models.nix { inherit lib; }).modelList;
+  model_list = models.modelList;
+
+  router_settings = {
+    # Hyper's two prepaid accounts: spend the primary down, then spill to its
+    # `-dft` mirror. Derived in models.nix from the hyper entries themselves, so
+    # a new hyper model gets its fallback pair without touching this file.
+    #
+    # Cross-group fallbacks rather than two deployments in one model group, on
+    # purpose — the reasoning (cache locality, and the fact that LiteLLM will not
+    # cool down or retry a 402) is written out in full at the -dft block in
+    # models.nix. Read that before replacing this with a routing_strategy.
+    #
+    # Deliberately NOT paired with optional_pre_call_checks = ["deployment_affinity"]:
+    # one credential per model group already pins every request for a given model
+    # name to one account, which is what Hyper's implicit prompt caching needs.
+    # Affinity would add a TTL and a cache lookup to buy nothing.
+    fallbacks = models.hyperFallbacks;
+  };
 
   litellm_settings = {
     # /v1/messages for non-Anthropic models: bridge via chat/completions, not the

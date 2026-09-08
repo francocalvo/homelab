@@ -72,10 +72,71 @@ let
     apiKey = "os.environ/COMMANDCODE_API_KEY";
   };
 
+  # Bound rather than inlined because `isHyper` below picks the entries to mirror
+  # by matching on it. See the -dft block immediately after.
+  hyperApiBase = "https://hyper.charm.land/v1";
+
   hyper = openaiCompat {
-    apiBase = "https://hyper.charm.land/v1";
+    apiBase = hyperApiBase;
     apiKey = "os.environ/HYPER_API_KEY";
   };
+
+  # ---- The second Hyper account, as derived `-dft` mirrors -----------------
+  #
+  # Hyper bills prepaid "hypercredits" per ACCOUNT, so a second account buys a
+  # second balance, not extra rate limit. Every hyper entry therefore gets a
+  # `<name>-dft` twin, identical but for the credential, and ./config.nix wires
+  # <name> -> [<name>-dft] as a LiteLLM fallback: drain the primary, then spill.
+  #
+  # WHY SEPARATE MODEL GROUPS, rather than two deployments in one group with a
+  # routing strategy across them — two independent reasons, both verified
+  # against the router source in litellm 1.82.0 on 2026-09-04:
+  #
+  #   1. Cache locality. Hyper caches implicitly: there is a real cache_read
+  #      rate but no cache_control in the openai/ request shape, so a prompt
+  #      only hits warm cache if it lands on the SAME account that saw its
+  #      prefix. One credential per group means the account is a property of the
+  #      model name and never varies, so this holds by construction. The
+  #      alternative is LiteLLM's `deployment_affinity` pre-call check, which
+  #      pins per virtual-key hash on a TTL — strictly weaker, and pointless
+  #      here. (Its sibling check `prompt_caching` is useless for Hyper at any
+  #      rate: PromptCachingCache.extract_cacheable_prefix returns [] unless the
+  #      request carries explicit cache_control blocks, so it silently no-ops on
+  #      every openai/-prefixed entry in this file.)
+  #
+  #   2. Exhaustion actually fails over. router_utils/cooldown_handlers.py's
+  #      _is_cooldown_required cools a deployment down for 4xx ONLY on 429, 401,
+  #      408 and 404, and utils.py's _should_retry retries only on 408, 409, 429
+  #      and 5xx. Both sets are hardcoded — cooldown_time tunes duration only,
+  #      and allowed_fails_policy sits behind the same gate. So if Hyper answers
+  #      an empty balance with 402 (the natural code for prepaid credit) or a
+  #      plain 400, in-group failover does NOT happen: the error goes straight
+  #      to the client and the dry deployment stays in the healthy pool.
+  #      Cross-group `fallbacks` are dispatched from a blanket `except
+  #      Exception` in Router.async_function_with_fallbacks with no status-code
+  #      gate, so they fire on any error, 402 included.
+  #
+  # The known cost of (2): once the primary is dry, every request pays one failed
+  # round-trip to it before spilling, forever, because nothing cools it down.
+  # Watch `usage.remaining.hypercredits` (returned on every chat/completions
+  # response) rather than waiting to discover this through latency.
+  #
+  # The mirrors are DERIVED, never written out: prices, limits, capability flags,
+  # upstream id and reasoning ladder all come from the primary, so the two
+  # accounts cannot drift. Adding a hyper model adds its twin and its fallback.
+  dftSuffix = "-dft";
+
+  isHyper = m: (m.litellm_params.api_base or null) == hyperApiBase;
+
+  dftOf =
+    m:
+    m
+    // {
+      model_name = m.model_name + dftSuffix;
+      litellm_params = m.litellm_params // {
+        api_key = "os.environ/HYPER_DFT_API_KEY";
+      };
+    };
 
   # Native provider: no api_base, LiteLLM knows the route.
   anthropic =
@@ -135,9 +196,10 @@ let
     };
 
 in
-{
-  # LiteLLM's model_list, verbatim. Consumed by ./config.nix.
-  modelList = [
+let
+  # The hand-written entries. The exported `modelList` is this plus the derived
+  # -dft mirrors — nothing outside this file should reference baseModelList.
+  baseModelList = [
   # ---- opencode zen, GO plan: https://opencode.ai/zen/go/v1 ----------------
   # Pricing basis for this whole block is models.dev, opencode's own registry
   # (https://models.dev/api.json), provider key `opencode-go`. models.dev also
@@ -314,16 +376,18 @@ in
   (chatgpt "gpt-5.6-luna" "gpt-5.6-luna")
 
   # ---- Anthropic direct (key in litellm_env as ANTHROPIC_API_KEY) ---------
-  # claude-fable-5 is the highest-capability tier, above claude-opus-5 at 2x the
-  # price. Verified live 2026-08-17 against GET /v1/models: 1M context, 128000
-  # output, vision + structured outputs, adaptive thinking.
+  # The fable tier is the highest-capability tier, above claude-opus-5 at 2x the
+  # price. Both fable entries verified live against GET /v1/models: 1M context,
+  # 128000 output, vision + structured outputs, adaptive thinking.
+  #
+  # THE REST OF THIS COMMENT APPLIES TO BOTH FABLE ENTRIES.
   #
   # Thinking is ALWAYS ON and is not configurable: an explicit
   # thinking={"type":"disabled"} returns 400 (the /models capability tree reports
   # thinking.types.disabled as null), and budget_tokens was removed across the
   # 5-series. Depth is controlled with output_config.effort (low..max) instead.
   # Nothing here sends a thinking block, so the default applies — but a client
-  # that passes one through LiteLLM will 400 on this model and not on the others.
+  # that passes one through LiteLLM will 400 on these and not on the others.
   #
   # Requires 30-day data retention; orgs under zero data retention get a 400 on
   # EVERY request regardless of payload. Confirmed working on the current key.
@@ -331,6 +395,33 @@ in
   # Like claude-opus-5, safety classifiers can return stop_reason "refusal" as a
   # normal HTTP 200 with empty content — a client that reads content[0] without
   # checking stop_reason sees an empty response rather than an error.
+
+  # Added 2026-09-03. NOTE THE UPSTREAM ID: `claude-fable-5-1`, not
+  # `claude-fable-5.1` — Anthropic spells the minor version with a hyphen, so this
+  # is the one anthropic/ entry where model_name and upstream both need the odd
+  # form. Verified 2026-09-03 against GET /v1/models/claude-fable-5-1 and a live
+  # chat completion on the current key (no ZDR problem).
+  #
+  # THE CACHE READ RATE IS THE ONLY PRICE THAT MOVED vs claude-fable-5, and it
+  # moved DOWN 4x. Base input/output are unchanged at $10/$50 and the 5-minute
+  # cache write is unchanged at $12.50/1M, but cache hits bill at 0.025x input
+  # instead of the 0.1x that every other model on this proxy uses: $0.25/1M
+  # against fable 5's $1.00/1M. Do NOT "correct" this to 0.1x to match its
+  # sibling — Anthropic documents 0.025x as specific to Fable 5.1 and Mythos 5.1.
+  (anthropic "claude-fable-5-1" "claude-fable-5-1" (chatInfo {
+    maxIn = 1000000;
+    maxOut = 128000;
+    # $10 / $50 per 1M, identical to fable 5. Cache reads $0.25 per 1M — 0.025x
+    # input, NOT the usual 0.1x. 5-minute cache writes $12.50 per 1M (1.25x).
+    inCost = 0.00001;
+    outCost = 0.00005;
+    cacheRead = 0.00000025;
+    cacheWrite = 0.0000125;
+    reasoning = true;
+    vision = true;
+    schema = true;
+  }))
+
   (anthropic "claude-fable-5" "claude-fable-5" (chatInfo {
     maxIn = 1000000;
     maxOut = 128000;
@@ -625,6 +716,40 @@ in
     schema = false;
   }))
 
+  # Added 2026-09-03. Third route to the same upstream model as `glm-5.3-flash`
+  # (zen) and `cc-glm-5.3-flash` (Command Code), and BY FAR the most expensive of
+  # the three: $0.16332/$0.5444 against the other two's $0.075/$0.25, so ~2.2x on
+  # input and output both. It buys nothing on limits — same 131072 output cap as
+  # the zen twin. Reach for this one only when the GO plan's request allowance is
+  # the binding constraint (zen bills this model DOUBLE against that allowance)
+  # or when zen/Command Code are down.
+  #
+  # Unusual for this block in one good way: hyper caps most models' output at 10%
+  # of context, but serves this one at the full 131072 rather than 104857.
+  #
+  # Flags smoke-tested on chat/completions 2026-09-03, not taken from /v1/models:
+  #   vision    - REAL. Sent a 1400px UI screenshot as a base64 data URL and got
+  #               back an accurate description of the layout and form fields.
+  #   reasoning - REAL, and unlike zen/umans this route DOES report
+  #               reasoning_tokens in usage.
+  #   schema    - response_format json_schema (strict) is accepted and ignored;
+  #               the model answered in prose, same as every other hyper entry.
+  # Tool calling returns proper tool_calls with parsed arguments.
+  (hyper "hyper-glm-5.3-flash" "glm-5.3-flash" (chatInfo {
+    maxIn = 1048576;
+    maxOut = 131072;
+    # Hyper's published per-1M rates: $0.16332 / $0.5444 / cache_hit $0.0315752.
+    # cache_create is published as 0, so cacheWrite is omitted rather than
+    # declared free (see the block header) — this model does return cached_tokens
+    # on a repeat, so the read rate is real and is carried.
+    inCost = 0.00000016332;
+    outCost = 0.0000005444;
+    cacheRead = 0.0000000315752;
+    reasoning = true;
+    vision = true;
+    schema = false;
+  }))
+
   # Priced identically to Command Code's kimi-k3 ($3/$15/$0.30 per 1M) but with a
   # 131072 output cap that Command Code does not publish.
   (hyper "hyper-kimi-k3" "kimi-k3" (chatInfo {
@@ -655,8 +780,9 @@ in
   # at the provider, not here.
   #
   # ./manifest.nix asserts these keys exactly match modelList, so a model added
-  # above without a decision here is a build error, not a silent gap.
-  harness = {
+  # above without a decision here is a build error, not a silent gap. The -dft
+  # mirrors are exempt only because they inherit their primary's entry below.
+  baseHarness = {
     # zen accepts reasoning_effort without error but never reports reasoning
     # tokens in usage, so the ladder is unverifiable from outside. Not guessed.
     "glm-5.2".efforts = null;
@@ -702,6 +828,17 @@ in
 
     # Anthropic 5-series: depth via output_config.effort, low..max. Thinking is
     # always on and cannot be disabled, so there is no "none" rung.
+    #
+    # Ladder read straight off the capability tree in GET /v1/models/claude-fable-5-1
+    # on 2026-09-03, which reports all five rungs supported including xhigh.
+    "claude-fable-5-1" = {
+      efforts = [ "low" "medium" "high" "xhigh" "max" ];
+      notes = [
+        "Thinking is always on: an explicit thinking={\"type\":\"disabled\"} returns 400 on this model and not on the others."
+        "Requires 30-day data retention; zero-data-retention orgs get a 400 on every request."
+        "Cache reads bill at 0.025x input ($0.25/1M), not the 0.1x every other model here uses — prompt caching is 4x cheaper on this model than on claude-fable-5, at identical base rates."
+      ];
+    };
     "claude-fable-5" = {
       efforts = [ "low" "medium" "high" "max" ];
       notes = [
@@ -746,6 +883,51 @@ in
       efforts = null;
       notes = [ "Hyper caps output at 32768 where zen serves the same model at 131072." ];
     };
+
+    # Measured 2026-09-03. Every rung is ACCEPTED — no 400 on any of the seven,
+    # unlike the zen twin, which rejects everything outside low|high|max. But
+    # accepted is not the same as honoured: on an identical prompt, none, minimal,
+    # medium and high all produced exactly 24 reasoning tokens (the default),
+    # while low gave 15, max 42 and xhigh 63. So only low/xhigh/max visibly move
+    # the dial, xhigh came out ABOVE max, and "none" does not disable reasoning.
+    # The full ladder is listed because that is what upstream accepts; the notes
+    # carry the caveat rather than pruning rungs that do not error.
+    "hyper-glm-5.3-flash" = {
+      efforts = [ "none" "minimal" "low" "medium" "high" "xhigh" "max" ];
+      notes = [
+        "Accepts all seven rungs without error, but only low, xhigh and max measurably changed reasoning-token spend in one sample; none/minimal/medium/high all landed on the default. \"none\" does NOT disable reasoning, and xhigh scored above max — do not read the ladder as a dial."
+        "Same upstream model as zen's glm-5.3-flash and cc-glm-5.3-flash, but ~2.2x their price on both input and output for the same 131072 output cap. Prefer the zen or cc route unless the GO request allowance is the binding constraint."
+        "Unlike zen and umans, this route does report reasoning_tokens in usage."
+        "json_schema is accepted and silently ignored, returning prose — the standard hyper caveat."
+      ];
+    };
     "hyper-kimi-k3".efforts = null;
   };
+
+  # Every hyper entry, in definition order. Single source for the -dft mirrors,
+  # their harness entries and the fallback pairs, so all three stay in lockstep.
+  hyperModels = lib.filter isHyper baseModelList;
+
+  dftNameOf = m: m.model_name + dftSuffix;
+
+in
+{
+  # LiteLLM's model_list, verbatim. Consumed by ./config.nix.
+  modelList = baseModelList ++ map dftOf hyperModels;
+
+  # A -dft twin serves the same upstream model over the same route as its
+  # primary, so it inherits the primary's decision rather than carrying one of
+  # its own — there is nothing about it that could differ. Deriving this is also
+  # what keeps manifest.nix's modelList/harness assertion satisfiable without a
+  # parallel set of hand-written entries to forget to update.
+  harness = baseHarness // lib.listToAttrs (
+    map (m: {
+      name = dftNameOf m;
+      value = baseHarness.${m.model_name};
+    }) hyperModels
+  );
+
+  # LiteLLM `fallbacks` shape: a list of single-key { group = [ targets ]; }
+  # attrsets. Consumed by ./config.nix as router_settings.fallbacks.
+  hyperFallbacks = map (m: { ${m.model_name} = [ (dftNameOf m) ]; }) hyperModels;
 }
